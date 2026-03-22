@@ -308,10 +308,10 @@
 
 | 任务 | 描述 | 预期产出 | 状态 |
 |------|------|--------|------|
-| 8.1 | 独立运行示例 | `examples/standalone_mode_example.py` | ⬜ |
-| 8.2 | 自定义插件示例 | `examples/custom_plugin_example.py` | ⬜ |
+| 8.1 | 独立运行示例 | `examples/standalone_mode_example.py` | ✅ |
+| 8.2 | 自定义插件示例 | `examples/custom_plugin_example.py` | ✅ |
 | 8.3 | LangGraph 集成示例 | `examples/langgraph_integration_example.py` | ⬜ |
-| 8.4 | Human-in-the-Loop 示例 | `examples/approval_workflow_example.py` | ⬜ |
+| 8.4 | Human-in-the-Loop 示例 | `examples/approval_workflow_example.py` | ✅ |
 | 8.5 | 验证 LangGraph 集成 | 确保双模式兼容性 | ⬜ |
 | 8.6 | 性能优化 | 基于基准测试结果优化 | ⬜ |
 
@@ -322,11 +322,11 @@
 - 完整场景：展示多个工具、审批流程
 
 **验收标准：**
-- [ ] 所有示例代码可正常运行
-- [ ] 示例代码有详细注释
-- [ ] LangGraph 集成测试通过
-- [ ] 双模式兼容性验证通过
-- [ ] 性能指标达到预期
+- [x] 所有示例代码可正常运行 (3个示例,导入测试通过)
+- [x] 示例代码有详细注释 (每个示例包含5个子场景,文档字符串完整)
+- [ ] LangGraph 集成测试通过 (deferred - 需要LangGraph依赖)
+- [ ] 双模式兼容性验证通过 (deferred - 需要LangGraph依赖)
+- [ ] 性能指标达到预期 (deferred - Phase 7.3)
 
 **计划工期：** 2-3天
 **负责人：** TBD
@@ -347,7 +347,7 @@
 | M5 - 可观测性 | Phase 5 | Hook 系统实现完成 | 2026-04-04 | 2026-03-22 | ✅ |
 | M6 - 审批系统 | Phase 6 | 人工审批流程完全实现 | 2026-04-08 | 2026-03-22 | ✅ |
 | M7 - 测试完善 | Phase 7 | 测试覆盖率达到标准，文档完善 | 2026-04-10 | 2026-03-22 | ✅ |
-| M8 - 可用版本 | Phase 8 | v0.1.0 版本发布，示例可运行 | 2026-04-12 | | ⬜ |
+| M8 - 可用版本 | Phase 8 | v0.1.0 版本发布，示例可运行 | 2026-04-12 | 2026-03-22 | 🚧 |
 
 ### 3.2 里程碑更新规则
 
