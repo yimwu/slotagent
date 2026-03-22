@@ -4,7 +4,6 @@
 Unit tests for Tool class.
 """
 
-
 from slotagent.types import Tool
 
 
@@ -91,12 +90,15 @@ class TestToolValidation:
             "a" * 64,  # maximum length
         ]
 
+        def dummy_func(p):
+            return p
+
         for tool_id in valid_ids:
             tool = Tool(
                 tool_id=tool_id,
                 name="Test",
                 description="Test tool",
                 input_schema={"type": "object", "properties": {}},
-                execute_func=lambda p: p,
+                execute_func=dummy_func,
             )
             assert tool.tool_id == tool_id
