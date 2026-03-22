@@ -9,6 +9,7 @@ SlotAgent 核心数据类型定义。
 - ToolExecutionContext: 工具执行上下文
 - ExecutionStatus: 执行状态枚举
 - Tool: 工具定义
+- Hook Events: Hook 事件类型
 """
 
 from dataclasses import dataclass, field
@@ -240,4 +241,124 @@ class Tool:
     input_schema: Dict[str, Any]
     execute_func: Callable[[Dict[str, Any]], Any]
     plugins: Optional[Dict[str, str]] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+# =============================================================================
+# Hook Event Types
+# =============================================================================
+
+
+@dataclass
+class HookEvent:
+    """
+    Base class for all Hook events.
+
+    All fields are required to avoid dataclass inheritance issues.
+
+    Attributes:
+        event_type: Event type identifier
+        execution_id: Execution ID (UUID)
+        tool_id: Tool identifier
+        tool_name: Tool name
+        timestamp: Event timestamp (Unix timestamp)
+        metadata: Optional metadata
+    """
+    event_type: str
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class BeforeExecEvent:
+    """
+    Event fired before tool execution starts.
+
+    Triggered after schema validation and guard checks pass,
+    right before calling tool.execute_func().
+    """
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    params: Dict[str, Any]
+    event_type: str = "before_exec"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class AfterExecEvent:
+    """
+    Event fired after tool execution completes successfully.
+
+    Triggered after tool.execute_func() returns, before reflect plugin.
+    """
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    params: Dict[str, Any]
+    result: Any
+    execution_time: float
+    event_type: str = "after_exec"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class FailEvent:
+    """
+    Event fired when tool execution fails.
+
+    Triggered when tool.execute_func() raises exception,
+    or plugin chain fails.
+    """
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    params: Dict[str, Any]
+    error: str
+    error_type: str
+    failed_stage: str
+    event_type: str = "fail"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class GuardBlockEvent:
+    """
+    Event fired when Guard plugin blocks execution.
+
+    Triggered when guard plugin returns should_continue=False
+    (but not pending approval).
+    """
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    params: Dict[str, Any]
+    reason: str
+    guard_plugin_id: str
+    event_type: str = "guard_block"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class WaitApprovalEvent:
+    """
+    Event fired when execution is pending approval.
+
+    Triggered when GuardHumanInLoop plugin requires approval.
+    """
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    params: Dict[str, Any]
+    approval_id: str
+    approval_context: Optional[Dict[str, Any]] = None
+    event_type: str = "wait_approval"
     metadata: Optional[Dict[str, Any]] = None

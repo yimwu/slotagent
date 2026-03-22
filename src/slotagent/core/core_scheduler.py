@@ -12,12 +12,18 @@ import uuid
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from slotagent.core.plugin_pool import PluginPool
+from slotagent.core.hook_manager import HookManager
 from slotagent.interfaces import ToolNotFoundError
 from slotagent.types import (
+    AfterExecEvent,
+    BeforeExecEvent,
     ExecutionStatus,
+    FailEvent,
+    GuardBlockEvent,
     PluginContext,
     PluginResult,
     ToolExecutionContext,
+    WaitApprovalEvent,
 )
 
 if TYPE_CHECKING:
@@ -53,7 +59,8 @@ class CoreScheduler:
     def __init__(
         self,
         plugin_pool: Optional[PluginPool] = None,
-        tool_registry: Optional['ToolRegistry'] = None
+        tool_registry: Optional['ToolRegistry'] = None,
+        hook_manager: Optional[HookManager] = None
     ):
         """
         Initialize core scheduler.
@@ -61,6 +68,7 @@ class CoreScheduler:
         Args:
             plugin_pool: Optional PluginPool instance (creates new if None)
             tool_registry: Optional ToolRegistry instance (creates new if None)
+            hook_manager: Optional HookManager instance (creates new if None)
         """
         if plugin_pool is None:
             plugin_pool = PluginPool()
@@ -68,9 +76,12 @@ class CoreScheduler:
             # Import here to avoid circular dependency
             from slotagent.core.tool_registry import ToolRegistry
             tool_registry = ToolRegistry(plugin_pool)
+        if hook_manager is None:
+            hook_manager = HookManager()
 
         self.plugin_pool = plugin_pool
         self.tool_registry = tool_registry
+        self.hook_manager = hook_manager
 
     def register_tool(self, tool: Any) -> None:
         """
@@ -212,6 +223,17 @@ class CoreScheduler:
             if not result.should_continue:
                 context.status = ExecutionStatus.FAILED
                 context.error = result.error
+                # Emit fail event for schema validation failure
+                self.hook_manager.emit(FailEvent(
+                    execution_id=context.execution_id,
+                    tool_id=context.tool_id,
+                    tool_name=context.tool_name,
+                    timestamp=time.time(),
+                    params=context.params,
+                    error=result.error or "Schema validation failed",
+                    error_type=result.error_type or "ValidationError",
+                    failed_stage="schema"
+                ))
                 return context
 
         # 2. Guard layer
@@ -222,27 +244,77 @@ class CoreScheduler:
             previous_results['guard'] = result.data
 
             if not result.should_continue:
-                # Check if pending approval (Phase 6 will implement this)
+                # Check if pending approval
                 if result.data and result.data.get('pending_approval'):
                     context.status = ExecutionStatus.PENDING_APPROVAL
                     context.approval_id = result.data.get('approval_id')
+                    # Emit wait_approval event
+                    self.hook_manager.emit(WaitApprovalEvent(
+                        execution_id=context.execution_id,
+                        tool_id=context.tool_id,
+                        tool_name=context.tool_name,
+                        timestamp=time.time(),
+                        params=context.params,
+                        approval_id=context.approval_id or "",
+                        approval_context=result.data.get('approval_context')
+                    ))
                 else:
                     # Guard blocked
                     context.status = ExecutionStatus.FAILED
                     context.error = result.data.get('reason', 'Blocked by guard')
+                    # Emit guard_block event
+                    self.hook_manager.emit(GuardBlockEvent(
+                        execution_id=context.execution_id,
+                        tool_id=context.tool_id,
+                        tool_name=context.tool_name,
+                        timestamp=time.time(),
+                        params=context.params,
+                        reason=context.error,
+                        guard_plugin_id=guard_plugin.plugin_id
+                    ))
 
                 return context
+
+        # Emit before_exec event
+        self.hook_manager.emit(BeforeExecEvent(
+            execution_id=context.execution_id,
+            tool_id=context.tool_id,
+            tool_name=context.tool_name,
+            timestamp=time.time(),
+            params=context.params
+        ))
 
         # 3. Execute tool
         try:
             final_result = tool.execute_func(context.params)
             context.final_result = final_result
 
+            # Emit after_exec event
+            self.hook_manager.emit(AfterExecEvent(
+                execution_id=context.execution_id,
+                tool_id=context.tool_id,
+                tool_name=context.tool_name,
+                timestamp=time.time(),
+                params=context.params,
+                result=final_result,
+                execution_time=time.time() - context.start_time
+            ))
+
         except Exception as e:
             # Tool execution failed
-            # Phase 3 will add Healing plugin here
             context.status = ExecutionStatus.FAILED
             context.error = f"Tool execution failed: {str(e)}"
+            # Emit fail event
+            self.hook_manager.emit(FailEvent(
+                execution_id=context.execution_id,
+                tool_id=context.tool_id,
+                tool_name=context.tool_name,
+                timestamp=time.time(),
+                params=context.params,
+                error=str(e),
+                error_type=type(e).__name__,
+                failed_stage="execute"
+            ))
             return context
 
         # 4. Reflect layer (Phase 3)
