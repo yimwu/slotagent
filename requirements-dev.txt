@@ -1,0 +1,21 @@
+# SlotAgent 开发依赖 (Development Dependencies)
+#
+# 按照 DEVELOPMENT_RULES.md 规范配置
+
+# 测试框架
+pytest>=7.4.0              # 测试框架
+pytest-cov>=4.1.0          # 覆盖率统计
+pytest-mock>=3.11.0        # Mock支持
+pytest-asyncio>=0.21.0     # 异步测试支持
+
+# 代码质量工具
+black>=23.7.0              # 代码格式化
+flake8>=6.1.0              # Lint检查
+isort==5.13.2              # 导入排序 (锁定版本避免CI差异)
+mypy>=1.5.0                # 类型检查
+
+# 复杂度分析
+radon>=6.0.1               # 圈复杂度和可维护性指数
+
+# 其他辅助工具
+ipython>=8.12.0            # 交互式调试
