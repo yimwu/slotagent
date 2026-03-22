@@ -7,42 +7,42 @@ Tests the full execution pipeline: tool registration, plugin chain execution,
 hook events, and approval workflows with all components working together.
 """
 
-import time
 import threading
-import uuid
+import time
 
 import pytest
 
+from slotagent.core.approval_manager import ApprovalManager
 from slotagent.core.core_scheduler import CoreScheduler
 from slotagent.core.hook_manager import HookManager
-from slotagent.core.approval_manager import ApprovalManager
-from slotagent.core.plugin_pool import PluginPool
 from slotagent.core.tool_registry import ToolRegistry
-from slotagent.plugins.schema import SchemaDefault, SchemaStrict
 from slotagent.plugins.guard import GuardDefault, GuardHumanInLoop
-from slotagent.plugins.healing import HealingRetry
-from slotagent.plugins.reflect import ReflectSimple
 from slotagent.plugins.observe import LogPlugin
+from slotagent.plugins.schema import SchemaDefault
 from slotagent.types import (
-    Tool,
-    ExecutionStatus,
+    AfterExecEvent,
     ApprovalStatus,
     BeforeExecEvent,
-    AfterExecEvent,
+    ExecutionStatus,
     FailEvent,
     GuardBlockEvent,
+    Tool,
     WaitApprovalEvent,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / shared helpers
 # ---------------------------------------------------------------------------
 
+
 def make_tool(tool_id: str, func=None, schema=None):
     """Build a minimal Tool with sensible defaults."""
     if func is None:
-        func = lambda params: {"status": "ok", "tool_id": tool_id}
+
+        def default_func(params):
+            return {"status": "ok", "tool_id": tool_id}
+
+        func = default_func
     if schema is None:
         schema = {"type": "object", "properties": {}}
     return Tool(
@@ -77,6 +77,7 @@ PAYMENT_SCHEMA = {
 # 1. Basic end-to-end execution
 # ---------------------------------------------------------------------------
 
+
 class TestBasicExecution:
     """End-to-end execution without plugins."""
 
@@ -95,6 +96,7 @@ class TestBasicExecution:
     def test_unknown_tool_raises_error(self):
         """Executing an unregistered tool raises ToolNotFoundError."""
         from slotagent.interfaces import ToolNotFoundError
+
         scheduler = CoreScheduler()
 
         with pytest.raises(ToolNotFoundError, match="Tool 'unknown_tool' not found"):
@@ -105,8 +107,12 @@ class TestBasicExecution:
         scheduler = CoreScheduler()
 
         calls = {"a": 0, "b": 0}
-        tool_a = make_tool("tool_a", func=lambda p: calls.update({"a": calls["a"] + 1}) or {"called": "a"})
-        tool_b = make_tool("tool_b", func=lambda p: calls.update({"b": calls["b"] + 1}) or {"called": "b"})
+        tool_a = make_tool(
+            "tool_a", func=lambda p: calls.update({"a": calls["a"] + 1}) or {"called": "a"}
+        )
+        tool_b = make_tool(
+            "tool_b", func=lambda p: calls.update({"b": calls["b"] + 1}) or {"called": "b"}
+        )
 
         scheduler.register_tool(tool_a)
         scheduler.register_tool(tool_b)
@@ -123,6 +129,7 @@ class TestBasicExecution:
 # ---------------------------------------------------------------------------
 # 2. Plugin chain execution
 # ---------------------------------------------------------------------------
+
 
 class TestPluginChainExecution:
     """Verify the Schema → Guard → Execute → Healing → Reflect chain."""
@@ -179,9 +186,7 @@ class TestPluginChainExecution:
         )
 
         scheduler = CoreScheduler()
-        scheduler.plugin_pool.register_global_plugin(
-            SchemaDefault(schema=WEATHER_SCHEMA)
-        )
+        scheduler.plugin_pool.register_global_plugin(SchemaDefault(schema=WEATHER_SCHEMA))
         scheduler.register_tool(tool)
 
         # Missing required "location" param
@@ -200,9 +205,7 @@ class TestPluginChainExecution:
 
         tool = make_tool("dangerous_tool", func=track_execute)
         scheduler = CoreScheduler()
-        scheduler.plugin_pool.register_global_plugin(
-            GuardDefault(blacklist=["dangerous_tool"])
-        )
+        scheduler.plugin_pool.register_global_plugin(GuardDefault(blacklist=["dangerous_tool"]))
         scheduler.register_tool(tool)
 
         ctx = scheduler.execute("dangerous_tool", {})
@@ -264,6 +267,7 @@ class TestPluginChainExecution:
 # 3. Hook event system
 # ---------------------------------------------------------------------------
 
+
 class TestHookEvents:
     """Verify Hook events are emitted at correct points in execution."""
 
@@ -319,9 +323,7 @@ class TestHookEvents:
         block_events = []
         hook_manager.subscribe("guard_block", lambda e: block_events.append(e))
 
-        scheduler.plugin_pool.register_global_plugin(
-            GuardDefault(blacklist=["blocked_tool"])
-        )
+        scheduler.plugin_pool.register_global_plugin(GuardDefault(blacklist=["blocked_tool"]))
         tool = make_tool("blocked_tool")
         scheduler.register_tool(tool)
 
@@ -377,6 +379,7 @@ class TestHookEvents:
 # 4. Approval workflow
 # ---------------------------------------------------------------------------
 
+
 class TestApprovalWorkflow:
     """Verify complete approval lifecycle through the engine."""
 
@@ -425,9 +428,7 @@ class TestApprovalWorkflow:
         assert ctx.status == ExecutionStatus.PENDING_APPROVAL
 
         record = approval_manager.reject(
-            ctx.approval_id,
-            approver="security_admin",
-            reason="Insufficient justification"
+            ctx.approval_id, approver="security_admin", reason="Insufficient justification"
         )
         assert record.status == ApprovalStatus.REJECTED
         assert record.reject_reason == "Insufficient justification"
@@ -487,6 +488,7 @@ class TestApprovalWorkflow:
 # ---------------------------------------------------------------------------
 # 5. Multi-layer plugin combination
 # ---------------------------------------------------------------------------
+
 
 class TestMultiLayerPluginCombination:
     """Tests combining multiple plugin types in realistic configurations."""
@@ -587,6 +589,7 @@ class TestMultiLayerPluginCombination:
 # 6. Concurrent executions
 # ---------------------------------------------------------------------------
 
+
 class TestConcurrentExecution:
     """Verify thread safety during concurrent executions."""
 
@@ -663,6 +666,7 @@ class TestConcurrentExecution:
 # ---------------------------------------------------------------------------
 # 7. ToolRegistry integration
 # ---------------------------------------------------------------------------
+
 
 class TestToolRegistryIntegration:
     """Verify CoreScheduler works correctly with an external ToolRegistry."""

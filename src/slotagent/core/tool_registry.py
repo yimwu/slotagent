@@ -8,7 +8,7 @@ Provides thread-safe tool registration, lookup, and validation.
 
 import re
 import threading
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from slotagent.types import Tool
 
@@ -30,12 +30,12 @@ class ToolRegistry:
     """
 
     # Valid tool_id pattern: ^[a-z][a-z0-9_]{1,63}$
-    TOOL_ID_PATTERN = re.compile(r'^[a-z][a-z0-9_]{1,63}$')
+    TOOL_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
 
     # Valid plugin layers
-    VALID_LAYERS = {'schema', 'guard', 'healing', 'reflect', 'observe'}
+    VALID_LAYERS = {"schema", "guard", "healing", "reflect", "observe"}
 
-    def __init__(self, plugin_pool: Optional['PluginPool'] = None):
+    def __init__(self, plugin_pool: Optional["PluginPool"] = None):
         """
         Initialize ToolRegistry.
 
@@ -129,8 +129,8 @@ class ToolRegistry:
             filtered_tools = []
             for tool in all_tools:
                 # Check if tool has tags in metadata
-                if tool.metadata and 'tags' in tool.metadata:
-                    tool_tags = tool.metadata['tags']
+                if tool.metadata and "tags" in tool.metadata:
+                    tool_tags = tool.metadata["tags"]
                     # Check if any requested tag matches
                     if any(tag in tool_tags for tag in tags):
                         filtered_tools.append(tool)
@@ -182,15 +182,12 @@ class ToolRegistry:
         # 1. Validate tool_id format
         if not self.TOOL_ID_PATTERN.match(tool.tool_id):
             raise ValueError(
-                f"Invalid tool_id format: {tool.tool_id}. "
-                f"Must match: ^[a-z][a-z0-9_]{{1,63}}$"
+                f"Invalid tool_id format: {tool.tool_id}. " f"Must match: ^[a-z][a-z0-9_]{{1,63}}$"
             )
 
         # 2. Validate name
         if not tool.name or len(tool.name) < 1 or len(tool.name) > 128:
-            raise ValueError(
-                f"Invalid name length: {len(tool.name)}. Must be 1-128 characters"
-            )
+            raise ValueError(f"Invalid name length: {len(tool.name)}. Must be 1-128 characters")
 
         # 3. Validate description
         if not tool.description or len(tool.description) < 10 or len(tool.description) > 1000:
@@ -202,10 +199,10 @@ class ToolRegistry:
         if not isinstance(tool.input_schema, dict):
             raise ValueError("Invalid input_schema: must be a dictionary")
 
-        if tool.input_schema.get('type') != 'object':
+        if tool.input_schema.get("type") != "object":
             raise ValueError("Invalid input_schema: must have type=object")
 
-        if 'properties' not in tool.input_schema:
+        if "properties" not in tool.input_schema:
             raise ValueError("Invalid input_schema: must have properties")
 
         # 5. Validate execute_func
@@ -218,8 +215,7 @@ class ToolRegistry:
                 # Check layer validity
                 if layer not in self.VALID_LAYERS:
                     raise ValueError(
-                        f"Invalid plugin layer: {layer}. "
-                        f"Must be one of: {self.VALID_LAYERS}"
+                        f"Invalid plugin layer: {layer}. " f"Must be one of: {self.VALID_LAYERS}"
                     )
 
                 # Check plugin exists in PluginPool

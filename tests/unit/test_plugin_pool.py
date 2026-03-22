@@ -35,9 +35,9 @@ class TestPluginPoolRegistration:
         pool.register_global_plugin(plugin)
 
         # Should be able to retrieve the plugin
-        retrieved = pool.get_plugin('schema')
+        retrieved = pool.get_plugin("schema")
         assert retrieved is not None
-        assert retrieved.plugin_id == 'schema_mock'
+        assert retrieved.plugin_id == "schema_mock"
 
     def test_register_multiple_plugins_same_layer(self):
         """Test registering multiple plugins in the same layer"""
@@ -51,9 +51,9 @@ class TestPluginPoolRegistration:
         pool.register_global_plugin(plugin2)
 
         # Both should be registered
-        assert pool.get_plugin('schema') is not None
-        assert pool.get_plugin_by_id('schema_mock') is not None
-        assert pool.get_plugin_by_id('schema_alternative') is not None
+        assert pool.get_plugin("schema") is not None
+        assert pool.get_plugin_by_id("schema_mock") is not None
+        assert pool.get_plugin_by_id("schema_alternative") is not None
 
     def test_register_plugin_duplicate_id_raises_error(self):
         """Test that registering duplicate plugin_id raises error"""
@@ -91,11 +91,11 @@ class TestPluginPoolRegistration:
         pool.register_global_plugin(MockObservePlugin())
 
         # All layers should have plugins
-        assert pool.get_plugin('schema') is not None
-        assert pool.get_plugin('guard') is not None
-        assert pool.get_plugin('healing') is not None
-        assert pool.get_plugin('reflect') is not None
-        assert pool.get_plugin('observe') is not None
+        assert pool.get_plugin("schema") is not None
+        assert pool.get_plugin("guard") is not None
+        assert pool.get_plugin("healing") is not None
+        assert pool.get_plugin("reflect") is not None
+        assert pool.get_plugin("observe") is not None
 
 
 class TestPluginPoolQuery:
@@ -108,9 +108,9 @@ class TestPluginPoolQuery:
         pool = PluginPool()
         pool.register_global_plugin(MockSchemaPlugin())
 
-        plugin = pool.get_plugin('schema')
+        plugin = pool.get_plugin("schema")
         assert plugin is not None
-        assert plugin.layer == 'schema'
+        assert plugin.layer == "schema"
 
     def test_get_plugin_nonexistent_layer_returns_none(self):
         """Test getting plugin from layer with no registered plugin"""
@@ -118,7 +118,7 @@ class TestPluginPoolQuery:
 
         pool = PluginPool()
 
-        plugin = pool.get_plugin('schema')
+        plugin = pool.get_plugin("schema")
         assert plugin is None
 
     def test_get_plugin_by_id(self):
@@ -128,9 +128,9 @@ class TestPluginPoolQuery:
         pool = PluginPool()
         pool.register_global_plugin(MockSchemaPlugin())
 
-        plugin = pool.get_plugin_by_id('schema_mock')
+        plugin = pool.get_plugin_by_id("schema_mock")
         assert plugin is not None
-        assert plugin.plugin_id == 'schema_mock'
+        assert plugin.plugin_id == "schema_mock"
 
     def test_get_plugin_by_id_nonexistent_returns_none(self):
         """Test getting nonexistent plugin by ID returns None"""
@@ -138,7 +138,7 @@ class TestPluginPoolQuery:
 
         pool = PluginPool()
 
-        plugin = pool.get_plugin_by_id('nonexistent')
+        plugin = pool.get_plugin_by_id("nonexistent")
         assert plugin is None
 
     def test_list_plugins_by_layer(self):
@@ -149,11 +149,11 @@ class TestPluginPoolQuery:
         pool.register_global_plugin(MockSchemaPlugin())
         pool.register_global_plugin(AlternativeSchemaPlugin())
 
-        plugins = pool.list_plugins('schema')
+        plugins = pool.list_plugins("schema")
         assert len(plugins) == 2
         plugin_ids = [p.plugin_id for p in plugins]
-        assert 'schema_mock' in plugin_ids
-        assert 'schema_alternative' in plugin_ids
+        assert "schema_mock" in plugin_ids
+        assert "schema_alternative" in plugin_ids
 
 
 class TestToolPluginConfiguration:
@@ -168,13 +168,11 @@ class TestToolPluginConfiguration:
         pool.register_global_plugin(AlternativeSchemaPlugin())
 
         # Register tool-specific config
-        pool.register_tool_plugins('payment_refund', {
-            'schema': 'schema_alternative'
-        })
+        pool.register_tool_plugins("payment_refund", {"schema": "schema_alternative"})
 
         # Should return tool-specific plugin
-        plugin = pool.get_plugin('schema', 'payment_refund')
-        assert plugin.plugin_id == 'schema_alternative'
+        plugin = pool.get_plugin("schema", "payment_refund")
+        assert plugin.plugin_id == "schema_alternative"
 
     def test_register_tool_plugins_nonexistent_plugin_raises_error(self):
         """Test that registering nonexistent plugin_id raises error"""
@@ -183,9 +181,7 @@ class TestToolPluginConfiguration:
         pool = PluginPool()
 
         with pytest.raises(ValueError, match="not found"):
-            pool.register_tool_plugins('test_tool', {
-                'schema': 'nonexistent_plugin'
-            })
+            pool.register_tool_plugins("test_tool", {"schema": "nonexistent_plugin"})
 
     def test_tool_plugin_overrides_global(self):
         """Test that tool-level plugin overrides global plugin"""
@@ -196,21 +192,19 @@ class TestToolPluginConfiguration:
         pool.register_global_plugin(AlternativeSchemaPlugin())
 
         # Register tool-specific config
-        pool.register_tool_plugins('special_tool', {
-            'schema': 'schema_alternative'
-        })
+        pool.register_tool_plugins("special_tool", {"schema": "schema_alternative"})
 
         # Tool-specific should override global
-        plugin = pool.get_plugin('schema', 'special_tool')
-        assert plugin.plugin_id == 'schema_alternative'
+        plugin = pool.get_plugin("schema", "special_tool")
+        assert plugin.plugin_id == "schema_alternative"
 
         # Global should still work for other tools
-        plugin = pool.get_plugin('schema', 'other_tool')
-        assert plugin.plugin_id == 'schema_mock'
+        plugin = pool.get_plugin("schema", "other_tool")
+        assert plugin.plugin_id == "schema_mock"
 
         # Global should work when no tool_id specified
-        plugin = pool.get_plugin('schema')
-        assert plugin.plugin_id == 'schema_mock'
+        plugin = pool.get_plugin("schema")
+        assert plugin.plugin_id == "schema_mock"
 
 
 class TestPluginChainBuilding:
@@ -227,14 +221,14 @@ class TestPluginChainBuilding:
         pool.register_global_plugin(MockReflectPlugin())
         pool.register_global_plugin(MockObservePlugin())
 
-        chain = pool.get_plugin_chain('test_tool')
+        chain = pool.get_plugin_chain("test_tool")
 
         assert len(chain) == 5
-        assert chain[0].layer == 'schema'
-        assert chain[1].layer == 'guard'
-        assert chain[2].layer == 'healing'
-        assert chain[3].layer == 'reflect'
-        assert chain[4].layer == 'observe'
+        assert chain[0].layer == "schema"
+        assert chain[1].layer == "guard"
+        assert chain[2].layer == "healing"
+        assert chain[3].layer == "reflect"
+        assert chain[4].layer == "observe"
 
     def test_get_plugin_chain_partial_layers(self):
         """Test plugin chain with only some layers configured"""
@@ -245,11 +239,11 @@ class TestPluginChainBuilding:
         pool.register_global_plugin(MockGuardPlugin())
         # No healing, reflect, observe
 
-        chain = pool.get_plugin_chain('test_tool')
+        chain = pool.get_plugin_chain("test_tool")
 
         assert len(chain) == 2
-        assert chain[0].layer == 'schema'
-        assert chain[1].layer == 'guard'
+        assert chain[0].layer == "schema"
+        assert chain[1].layer == "guard"
 
     def test_get_plugin_chain_with_tool_override(self):
         """Test plugin chain with tool-specific overrides"""
@@ -261,15 +255,13 @@ class TestPluginChainBuilding:
         pool.register_global_plugin(MockGuardPlugin())
 
         # Tool-specific config
-        pool.register_tool_plugins('high_risk_tool', {
-            'schema': 'schema_alternative'
-        })
+        pool.register_tool_plugins("high_risk_tool", {"schema": "schema_alternative"})
 
-        chain = pool.get_plugin_chain('high_risk_tool')
+        chain = pool.get_plugin_chain("high_risk_tool")
 
         assert len(chain) == 2
-        assert chain[0].plugin_id == 'schema_alternative'  # Tool override
-        assert chain[1].plugin_id == 'guard_mock'  # Global
+        assert chain[0].plugin_id == "schema_alternative"  # Tool override
+        assert chain[1].plugin_id == "guard_mock"  # Global
 
     def test_get_plugin_chain_empty(self):
         """Test plugin chain when no plugins registered"""
@@ -277,7 +269,7 @@ class TestPluginChainBuilding:
 
         pool = PluginPool()
 
-        chain = pool.get_plugin_chain('test_tool')
+        chain = pool.get_plugin_chain("test_tool")
 
         assert len(chain) == 0
 
@@ -294,11 +286,11 @@ class TestPluginChainBuilding:
         pool.register_global_plugin(MockGuardPlugin())
         pool.register_global_plugin(MockHealingPlugin())
 
-        chain = pool.get_plugin_chain('test_tool')
+        chain = pool.get_plugin_chain("test_tool")
 
         # Should be in correct order: schema, guard, healing, reflect, observe
         layers = [p.layer for p in chain]
-        assert layers == ['schema', 'guard', 'healing', 'reflect', 'observe']
+        assert layers == ["schema", "guard", "healing", "reflect", "observe"]
 
 
 class TestPluginPoolEdgeCases:
@@ -320,7 +312,7 @@ class TestPluginPoolEdgeCases:
         pool = PluginPool()
 
         with pytest.raises(ValueError, match="Invalid layer"):
-            pool.get_plugin('invalid_layer')
+            pool.get_plugin("invalid_layer")
 
     def test_register_tool_plugins_empty_config(self):
         """Test registering tool with empty plugin config"""
@@ -329,7 +321,7 @@ class TestPluginPoolEdgeCases:
         pool = PluginPool()
 
         # Should not raise error
-        pool.register_tool_plugins('test_tool', {})
+        pool.register_tool_plugins("test_tool", {})
 
         # Should return None for all layers
-        assert pool.get_plugin('schema', 'test_tool') is None
+        assert pool.get_plugin("schema", "test_tool") is None

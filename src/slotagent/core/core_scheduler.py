@@ -9,10 +9,10 @@ This is the minimal kernel - only scheduling, no business logic.
 
 import time
 import uuid
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from slotagent.core.plugin_pool import PluginPool
 from slotagent.core.hook_manager import HookManager
+from slotagent.core.plugin_pool import PluginPool
 from slotagent.interfaces import ToolNotFoundError
 from slotagent.types import (
     AfterExecEvent,
@@ -59,8 +59,8 @@ class CoreScheduler:
     def __init__(
         self,
         plugin_pool: Optional[PluginPool] = None,
-        tool_registry: Optional['ToolRegistry'] = None,
-        hook_manager: Optional[HookManager] = None
+        tool_registry: Optional["ToolRegistry"] = None,
+        hook_manager: Optional[HookManager] = None,
     ):
         """
         Initialize core scheduler.
@@ -75,6 +75,7 @@ class CoreScheduler:
         if tool_registry is None:
             # Import here to avoid circular dependency
             from slotagent.core.tool_registry import ToolRegistry
+
             tool_registry = ToolRegistry(plugin_pool)
         if hook_manager is None:
             hook_manager = HookManager()
@@ -117,11 +118,7 @@ class CoreScheduler:
         """
         return self.tool_registry.get_tool(tool_id)
 
-    def execute(
-        self,
-        tool_id: str,
-        params: Dict[str, Any]
-    ) -> ToolExecutionContext:
+    def execute(self, tool_id: str, params: Dict[str, Any]) -> ToolExecutionContext:
         """
         Execute a tool with plugin chain processing.
 
@@ -169,7 +166,7 @@ class CoreScheduler:
             params=params,
             execution_id=str(uuid.uuid4()),
             status=ExecutionStatus.RUNNING,
-            start_time=time.time()
+            start_time=time.time(),
         )
 
         try:
@@ -189,9 +186,7 @@ class CoreScheduler:
         return context
 
     def _execute_plugin_chain(
-        self,
-        context: ToolExecutionContext,
-        tool: Any
+        self, context: ToolExecutionContext, tool: Any
     ) -> ToolExecutionContext:
         """
         Execute complete plugin chain for a tool.
@@ -214,75 +209,83 @@ class CoreScheduler:
         previous_results = {}
 
         # 1. Schema layer
-        schema_plugin = self.plugin_pool.get_plugin('schema', context.tool_id)
+        schema_plugin = self.plugin_pool.get_plugin("schema", context.tool_id)
         if schema_plugin:
             result = self._execute_plugin(schema_plugin, context, previous_results)
-            context.plugin_results['schema'] = result
-            previous_results['schema'] = result.data
+            context.plugin_results["schema"] = result
+            previous_results["schema"] = result.data
 
             if not result.should_continue:
                 context.status = ExecutionStatus.FAILED
                 context.error = result.error
                 # Emit fail event for schema validation failure
-                self.hook_manager.emit(FailEvent(
-                    execution_id=context.execution_id,
-                    tool_id=context.tool_id,
-                    tool_name=context.tool_name,
-                    timestamp=time.time(),
-                    params=context.params,
-                    error=result.error or "Schema validation failed",
-                    error_type=result.error_type or "ValidationError",
-                    failed_stage="schema"
-                ))
+                self.hook_manager.emit(
+                    FailEvent(
+                        execution_id=context.execution_id,
+                        tool_id=context.tool_id,
+                        tool_name=context.tool_name,
+                        timestamp=time.time(),
+                        params=context.params,
+                        error=result.error or "Schema validation failed",
+                        error_type=result.error_type or "ValidationError",
+                        failed_stage="schema",
+                    )
+                )
                 return context
 
         # 2. Guard layer
-        guard_plugin = self.plugin_pool.get_plugin('guard', context.tool_id)
+        guard_plugin = self.plugin_pool.get_plugin("guard", context.tool_id)
         if guard_plugin:
             result = self._execute_plugin(guard_plugin, context, previous_results)
-            context.plugin_results['guard'] = result
-            previous_results['guard'] = result.data
+            context.plugin_results["guard"] = result
+            previous_results["guard"] = result.data
 
             if not result.should_continue:
                 # Check if pending approval
-                if result.data and result.data.get('pending_approval'):
+                if result.data and result.data.get("pending_approval"):
                     context.status = ExecutionStatus.PENDING_APPROVAL
-                    context.approval_id = result.data.get('approval_id')
+                    context.approval_id = result.data.get("approval_id")
                     # Emit wait_approval event
-                    self.hook_manager.emit(WaitApprovalEvent(
-                        execution_id=context.execution_id,
-                        tool_id=context.tool_id,
-                        tool_name=context.tool_name,
-                        timestamp=time.time(),
-                        params=context.params,
-                        approval_id=context.approval_id or "",
-                        approval_context=result.data.get('approval_context')
-                    ))
+                    self.hook_manager.emit(
+                        WaitApprovalEvent(
+                            execution_id=context.execution_id,
+                            tool_id=context.tool_id,
+                            tool_name=context.tool_name,
+                            timestamp=time.time(),
+                            params=context.params,
+                            approval_id=context.approval_id or "",
+                            approval_context=result.data.get("approval_context"),
+                        )
+                    )
                 else:
                     # Guard blocked
                     context.status = ExecutionStatus.FAILED
-                    context.error = result.data.get('reason', 'Blocked by guard')
+                    context.error = result.data.get("reason", "Blocked by guard")
                     # Emit guard_block event
-                    self.hook_manager.emit(GuardBlockEvent(
-                        execution_id=context.execution_id,
-                        tool_id=context.tool_id,
-                        tool_name=context.tool_name,
-                        timestamp=time.time(),
-                        params=context.params,
-                        reason=context.error,
-                        guard_plugin_id=guard_plugin.plugin_id
-                    ))
+                    self.hook_manager.emit(
+                        GuardBlockEvent(
+                            execution_id=context.execution_id,
+                            tool_id=context.tool_id,
+                            tool_name=context.tool_name,
+                            timestamp=time.time(),
+                            params=context.params,
+                            reason=context.error,
+                            guard_plugin_id=guard_plugin.plugin_id,
+                        )
+                    )
 
                 return context
 
         # Emit before_exec event
-        self.hook_manager.emit(BeforeExecEvent(
-            execution_id=context.execution_id,
-            tool_id=context.tool_id,
-            tool_name=context.tool_name,
-            timestamp=time.time(),
-            params=context.params
-        ))
+        self.hook_manager.emit(
+            BeforeExecEvent(
+                execution_id=context.execution_id,
+                tool_id=context.tool_id,
+                tool_name=context.tool_name,
+                timestamp=time.time(),
+                params=context.params,
+            )
+        )
 
         # 3. Execute tool
         try:
@@ -290,46 +293,50 @@ class CoreScheduler:
             context.final_result = final_result
 
             # Emit after_exec event
-            self.hook_manager.emit(AfterExecEvent(
-                execution_id=context.execution_id,
-                tool_id=context.tool_id,
-                tool_name=context.tool_name,
-                timestamp=time.time(),
-                params=context.params,
-                result=final_result,
-                execution_time=time.time() - context.start_time
-            ))
+            self.hook_manager.emit(
+                AfterExecEvent(
+                    execution_id=context.execution_id,
+                    tool_id=context.tool_id,
+                    tool_name=context.tool_name,
+                    timestamp=time.time(),
+                    params=context.params,
+                    result=final_result,
+                    execution_time=time.time() - context.start_time,
+                )
+            )
 
         except Exception as e:
             # Tool execution failed
             context.status = ExecutionStatus.FAILED
             context.error = f"Tool execution failed: {str(e)}"
             # Emit fail event
-            self.hook_manager.emit(FailEvent(
-                execution_id=context.execution_id,
-                tool_id=context.tool_id,
-                tool_name=context.tool_name,
-                timestamp=time.time(),
-                params=context.params,
-                error=str(e),
-                error_type=type(e).__name__,
-                failed_stage="execute"
-            ))
+            self.hook_manager.emit(
+                FailEvent(
+                    execution_id=context.execution_id,
+                    tool_id=context.tool_id,
+                    tool_name=context.tool_name,
+                    timestamp=time.time(),
+                    params=context.params,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    failed_stage="execute",
+                )
+            )
             return context
 
         # 4. Reflect layer (Phase 3)
-        reflect_plugin = self.plugin_pool.get_plugin('reflect', context.tool_id)
+        reflect_plugin = self.plugin_pool.get_plugin("reflect", context.tool_id)
         if reflect_plugin:
             result = self._execute_plugin(reflect_plugin, context, previous_results)
-            context.plugin_results['reflect'] = result
-            previous_results['reflect'] = result.data
+            context.plugin_results["reflect"] = result
+            previous_results["reflect"] = result.data
 
         # 5. Observe layer (Phase 3)
-        observe_plugin = self.plugin_pool.get_plugin('observe', context.tool_id)
+        observe_plugin = self.plugin_pool.get_plugin("observe", context.tool_id)
         if observe_plugin:
             result = self._execute_plugin(observe_plugin, context, previous_results)
-            context.plugin_results['observe'] = result
-            previous_results['observe'] = result.data
+            context.plugin_results["observe"] = result
+            previous_results["observe"] = result.data
 
         # 6. Mark as completed
         context.status = ExecutionStatus.COMPLETED
@@ -337,10 +344,7 @@ class CoreScheduler:
         return context
 
     def _execute_plugin(
-        self,
-        plugin: Any,
-        context: ToolExecutionContext,
-        previous_results: Dict[str, Any]
+        self, plugin: Any, context: ToolExecutionContext, previous_results: Dict[str, Any]
     ) -> PluginResult:
         """
         Execute a single plugin.
@@ -361,7 +365,7 @@ class CoreScheduler:
             layer=plugin.layer,
             execution_id=context.execution_id,
             timestamp=time.time(),
-            previous_results=previous_results if previous_results else None
+            previous_results=previous_results if previous_results else None,
         )
 
         # Execute plugin
@@ -375,5 +379,5 @@ class CoreScheduler:
                 success=False,
                 should_continue=False,
                 error=f"Plugin execution error: {str(e)}",
-                error_type="PluginExecutionError"
+                error_type="PluginExecutionError",
             )

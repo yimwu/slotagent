@@ -3,8 +3,6 @@
 """
 pytest配置文件和全局fixtures
 """
-import pytest
-
 
 # TODO: Phase 2 - 添加 sample_plugins fixture
 # TODO: Phase 2 - 添加 sample_tool_def fixture

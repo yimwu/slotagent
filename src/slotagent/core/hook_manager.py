@@ -13,7 +13,6 @@ from typing import Callable, Dict, List, Optional
 
 from slotagent.types import HookEvent
 
-
 # Type alias for hook handler
 HookHandler = Callable[[HookEvent], None]
 
@@ -34,32 +33,22 @@ class HookManager:
     """
 
     # Valid event types
-    VALID_EVENT_TYPES = {
-        'before_exec',
-        'after_exec',
-        'fail',
-        'guard_block',
-        'wait_approval'
-    }
+    VALID_EVENT_TYPES = {"before_exec", "after_exec", "fail", "guard_block", "wait_approval"}
 
     def __init__(self):
         """Initialize HookManager."""
         # Subscribers dictionary: {event_type: [handler1, handler2, ...]}
         self._subscribers: Dict[str, List[HookHandler]] = {
-            'before_exec': [],
-            'after_exec': [],
-            'fail': [],
-            'guard_block': [],
-            'wait_approval': []
+            "before_exec": [],
+            "after_exec": [],
+            "fail": [],
+            "guard_block": [],
+            "wait_approval": [],
         }
         self._lock = threading.Lock()
-        self._logger = logging.getLogger('slotagent.hooks')
+        self._logger = logging.getLogger("slotagent.hooks")
 
-    def subscribe(
-        self,
-        event_type: str,
-        handler: HookHandler
-    ) -> None:
+    def subscribe(self, event_type: str, handler: HookHandler) -> None:
         """
         Subscribe to a hook event.
 
@@ -77,18 +66,13 @@ class HookManager:
         """
         if event_type not in self.VALID_EVENT_TYPES:
             raise ValueError(
-                f"Invalid event type: {event_type}. "
-                f"Must be one of: {self.VALID_EVENT_TYPES}"
+                f"Invalid event type: {event_type}. " f"Must be one of: {self.VALID_EVENT_TYPES}"
             )
 
         with self._lock:
             self._subscribers[event_type].append(handler)
 
-    def unsubscribe(
-        self,
-        event_type: str,
-        handler: HookHandler
-    ) -> None:
+    def unsubscribe(self, event_type: str, handler: HookHandler) -> None:
         """
         Unsubscribe from a hook event.
 
@@ -104,8 +88,7 @@ class HookManager:
         """
         if event_type not in self.VALID_EVENT_TYPES:
             raise ValueError(
-                f"Invalid event type: {event_type}. "
-                f"Must be one of: {self.VALID_EVENT_TYPES}"
+                f"Invalid event type: {event_type}. " f"Must be one of: {self.VALID_EVENT_TYPES}"
             )
 
         with self._lock:
@@ -144,9 +127,9 @@ class HookManager:
                     exc_info=True,
                     extra={
                         "event_type": event_type,
-                        "execution_id": getattr(event, 'execution_id', None),
-                        "handler": getattr(handler, '__name__', str(handler))
-                    }
+                        "execution_id": getattr(event, "execution_id", None),
+                        "handler": getattr(handler, "__name__", str(handler)),
+                    },
                 )
 
     def clear_subscribers(self, event_type: Optional[str] = None) -> None:

@@ -6,9 +6,9 @@ Unit tests for Healing plugins.
 Tests auto-retry and recovery logic.
 """
 
-import pytest
 import time
 import uuid
+
 
 from slotagent.types import PluginContext
 
@@ -20,8 +20,8 @@ class TestHealingRetry:
         """Test HealingRetry has correct attributes"""
         from slotagent.plugins.healing import HealingRetry
 
-        assert HealingRetry.layer == 'healing'
-        assert HealingRetry.plugin_id == 'healing_retry'
+        assert HealingRetry.layer == "healing"
+        assert HealingRetry.plugin_id == "healing_retry"
 
     def test_healing_retry_initialization(self):
         """Test HealingRetry initialization with custom settings"""
@@ -37,20 +37,20 @@ class TestHealingRetry:
         plugin = HealingRetry(max_retries=3)
 
         context = PluginContext(
-            tool_id='test',
-            tool_name='Test',
+            tool_id="test",
+            tool_name="Test",
             params={},
-            layer='healing',
+            layer="healing",
             execution_id=str(uuid.uuid4()),
             timestamp=time.time(),
-            metadata={'error': 'Tool execution failed'}
+            metadata={"error": "Tool execution failed"},
         )
 
         result = plugin.execute(context)
         assert result.success is True
         # Phase 3: Simple implementation, just reports not recovered
-        assert result.data['recovered'] is False
-        assert 'retry_count' in result.data or 'max_retries' in result.data
+        assert result.data["recovered"] is False
+        assert "retry_count" in result.data or "max_retries" in result.data
 
 
 class TestHealingPluginValidation:

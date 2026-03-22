@@ -11,27 +11,23 @@ Contains official implementations of the 5 plugin layers:
 - observe: Lifecycle observation
 """
 
-from slotagent.plugins.schema import SchemaDefault, SchemaStrict
 from slotagent.plugins.guard import GuardDefault, GuardHumanInLoop
 from slotagent.plugins.healing import HealingRetry
-from slotagent.plugins.reflect import ReflectSimple
 from slotagent.plugins.observe import LogPlugin
+from slotagent.plugins.reflect import ReflectSimple
+from slotagent.plugins.schema import SchemaDefault, SchemaStrict
 
 __all__ = [
     # Schema layer
-    'SchemaDefault',
-    'SchemaStrict',
-
+    "SchemaDefault",
+    "SchemaStrict",
     # Guard layer
-    'GuardDefault',
-    'GuardHumanInLoop',
-
+    "GuardDefault",
+    "GuardHumanInLoop",
     # Healing layer
-    'HealingRetry',
-
+    "HealingRetry",
     # Reflect layer
-    'ReflectSimple',
-
+    "ReflectSimple",
     # Observe layer
-    'LogPlugin',
+    "LogPlugin",
 ]

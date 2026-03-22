@@ -13,7 +13,6 @@ from typing import ClassVar
 
 from slotagent.types import PluginContext, PluginResult
 
-
 # =============================================================================
 # 异常定义
 # =============================================================================
@@ -174,19 +173,17 @@ class PluginInterface(ABC):
         super().__init_subclass__(**kwargs)
 
         # 检查是否定义了 layer
-        if not hasattr(cls, 'layer') or cls.layer is None:
-            raise PluginConfigError(
-                f"Plugin '{cls.__name__}' must define 'layer' class attribute"
-            )
+        if not hasattr(cls, "layer") or cls.layer is None:
+            raise PluginConfigError(f"Plugin '{cls.__name__}' must define 'layer' class attribute")
 
         # 检查是否定义了 plugin_id
-        if not hasattr(cls, 'plugin_id') or cls.plugin_id is None:
+        if not hasattr(cls, "plugin_id") or cls.plugin_id is None:
             raise PluginConfigError(
                 f"Plugin '{cls.__name__}' must define 'plugin_id' class attribute"
             )
 
         # 检查 layer 是否有效
-        valid_layers = {'schema', 'guard', 'healing', 'reflect', 'observe'}
+        valid_layers = {"schema", "guard", "healing", "reflect", "observe"}
         if cls.layer not in valid_layers:
             raise PluginConfigError(
                 f"Plugin '{cls.__name__}' has invalid layer '{cls.layer}'. "

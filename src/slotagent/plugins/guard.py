@@ -6,7 +6,7 @@ Guard layer plugins - Permission control and approval.
 Provides whitelist/blacklist-based access control and human-in-the-loop approval.
 """
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 from slotagent.interfaces import PluginInterface
 from slotagent.types import PluginContext, PluginResult
@@ -32,14 +32,11 @@ class GuardDefault(PluginInterface):
         >>> plugin = GuardDefault(whitelist=['safe_tool'], whitelist_only=True)
     """
 
-    layer = 'guard'
-    plugin_id = 'guard_default'
+    layer = "guard"
+    plugin_id = "guard_default"
 
     def __init__(
-        self,
-        blacklist: List[str] = None,
-        whitelist: List[str] = None,
-        whitelist_only: bool = False
+        self, blacklist: List[str] = None, whitelist: List[str] = None, whitelist_only: bool = False
     ):
         """
         Initialize GuardDefault plugin.
@@ -72,8 +69,7 @@ class GuardDefault(PluginInterface):
         # Whitelist takes precedence
         if tool_id in self.whitelist:
             return PluginResult(
-                success=True,
-                data={'approved': True, 'reason': 'Tool is whitelisted'}
+                success=True, data={"approved": True, "reason": "Tool is whitelisted"}
             )
 
         # Check blacklist
@@ -81,10 +77,7 @@ class GuardDefault(PluginInterface):
             return PluginResult(
                 success=True,
                 should_continue=False,
-                data={
-                    'blocked': True,
-                    'reason': f"Tool '{tool_id}' is in blacklist"
-                }
+                data={"blocked": True, "reason": f"Tool '{tool_id}' is in blacklist"},
             )
 
         # Whitelist-only mode
@@ -93,16 +86,13 @@ class GuardDefault(PluginInterface):
                 success=True,
                 should_continue=False,
                 data={
-                    'blocked': True,
-                    'reason': f"Tool '{tool_id}' not in whitelist (whitelist-only mode)"
-                }
+                    "blocked": True,
+                    "reason": f"Tool '{tool_id}' not in whitelist (whitelist-only mode)",
+                },
             )
 
         # Allow by default
-        return PluginResult(
-            success=True,
-            data={'approved': True}
-        )
+        return PluginResult(success=True, data={"approved": True})
 
 
 class GuardHumanInLoop(PluginInterface):
@@ -121,14 +111,10 @@ class GuardHumanInLoop(PluginInterface):
         ... )
     """
 
-    layer = 'guard'
-    plugin_id = 'guard_human_in_loop'
+    layer = "guard"
+    plugin_id = "guard_human_in_loop"
 
-    def __init__(
-        self,
-        approval_manager: 'ApprovalManager',
-        timeout: Optional[float] = None
-    ):
+    def __init__(self, approval_manager: "ApprovalManager", timeout: Optional[float] = None):
         """
         Initialize GuardHumanInLoop.
 
@@ -166,24 +152,21 @@ class GuardHumanInLoop(PluginInterface):
             tool_name=context.tool_name,
             params=context.params,
             timeout=self.timeout,
-            metadata={
-                'plugin_id': self.plugin_id,
-                'timestamp': context.timestamp
-            }
+            metadata={"plugin_id": self.plugin_id, "timestamp": context.timestamp},
         )
 
         return PluginResult(
             success=True,
             should_continue=False,
             data={
-                'pending_approval': True,
-                'approval_id': approval_id,
-                'approval_context': {
-                    'tool_id': context.tool_id,
-                    'tool_name': context.tool_name,
-                    'params_summary': self._summarize_params(context.params)
-                }
-            }
+                "pending_approval": True,
+                "approval_id": approval_id,
+                "approval_context": {
+                    "tool_id": context.tool_id,
+                    "tool_name": context.tool_name,
+                    "params_summary": self._summarize_params(context.params),
+                },
+            },
         )
 
     def _summarize_params(self, params: dict) -> str:

@@ -4,15 +4,15 @@
 Unit tests for ToolRegistry.
 """
 
-import pytest
 import threading
-import time
 
-from slotagent.core.tool_registry import ToolRegistry
+import pytest
+
 from slotagent.core.plugin_pool import PluginPool
-from slotagent.types import Tool
-from slotagent.plugins.schema import SchemaDefault, SchemaStrict
+from slotagent.core.tool_registry import ToolRegistry
 from slotagent.plugins.guard import GuardDefault
+from slotagent.plugins.schema import SchemaDefault, SchemaStrict
+from slotagent.types import Tool
 
 
 class TestToolRegistryCreation:
@@ -43,7 +43,7 @@ class TestToolRegistration:
             name="Test Tool",
             description="A test tool",
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         registry.register(tool)
@@ -62,7 +62,7 @@ class TestToolRegistration:
             name="Tool 1",
             description="First tool",
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         tool2 = Tool(
@@ -70,7 +70,7 @@ class TestToolRegistration:
             name="Tool 2",
             description="Second tool",
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         registry.register(tool1)
@@ -93,10 +93,7 @@ class TestToolRegistration:
             description="Payment processing tool",
             input_schema={"type": "object", "properties": {}},
             execute_func=lambda p: p,
-            plugins={
-                "schema": "schema_strict",
-                "guard": "guard_default"
-            }
+            plugins={"schema": "schema_strict", "guard": "guard_default"},
         )
 
         registry.register(tool)
@@ -123,7 +120,7 @@ class TestToolQuery:
             name="Existing Tool",
             description="An existing tool",
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         registry.register(tool)
@@ -147,7 +144,7 @@ class TestToolQuery:
             name="Tool 1",
             description="First tool",
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         tool2 = Tool(
@@ -155,7 +152,7 @@ class TestToolQuery:
             name="Tool 2",
             description="Second tool",
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         registry.register(tool1)
@@ -177,7 +174,7 @@ class TestToolQuery:
             description="Payment processing",
             input_schema={"type": "object", "properties": {}},
             execute_func=lambda p: p,
-            metadata={"tags": ["payment", "high-risk"]}
+            metadata={"tags": ["payment", "high-risk"]},
         )
 
         tool2 = Tool(
@@ -186,7 +183,7 @@ class TestToolQuery:
             description="Data query",
             input_schema={"type": "object", "properties": {}},
             execute_func=lambda p: p,
-            metadata={"tags": ["query", "low-risk"]}
+            metadata={"tags": ["query", "low-risk"]},
         )
 
         tool3 = Tool(
@@ -195,7 +192,7 @@ class TestToolQuery:
             description="Refund processing",
             input_schema={"type": "object", "properties": {}},
             execute_func=lambda p: p,
-            metadata={"tags": ["payment", "high-risk"]}
+            metadata={"tags": ["payment", "high-risk"]},
         )
 
         registry.register(tool1)
@@ -224,7 +221,7 @@ class TestToolQuery:
             description="First tool",
             input_schema={"type": "object", "properties": {}},
             execute_func=lambda p: p,
-            metadata={"tags": ["tag1"]}
+            metadata={"tags": ["tag1"]},
         )
 
         tool2 = Tool(
@@ -232,7 +229,7 @@ class TestToolQuery:
             name="Tool 2",
             description="Second tool",
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         registry.register(tool1)
@@ -254,7 +251,7 @@ class TestToolUnregistration:
             name="To Remove",
             description="Tool to be removed",
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         registry.register(tool)
@@ -282,11 +279,8 @@ class TestToolValidation:
             tool_id="valid_tool",
             name="Valid Tool",
             description="A valid tool for testing validation",
-            input_schema={
-                "type": "object",
-                "properties": {"param": {"type": "string"}}
-            },
-            execute_func=lambda p: p
+            input_schema={"type": "object", "properties": {"param": {"type": "string"}}},
+            execute_func=lambda p: p,
         )
 
         assert registry.validate_tool(tool) is True
@@ -301,7 +295,7 @@ class TestToolValidation:
             name="Test",
             description="Test tool",
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         with pytest.raises(ValueError, match="Invalid tool_id format"):
@@ -316,7 +310,7 @@ class TestToolValidation:
             name="Test",
             description="Test tool",
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         with pytest.raises(ValueError, match="Invalid tool_id format"):
@@ -331,7 +325,7 @@ class TestToolValidation:
             name="",
             description="Test tool",
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         with pytest.raises(ValueError, match="Invalid name"):
@@ -346,7 +340,7 @@ class TestToolValidation:
             name="Test",
             description="Short",  # Less than 10 characters
             input_schema={"type": "object", "properties": {}},
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         with pytest.raises(ValueError, match="Invalid description"):
@@ -361,7 +355,7 @@ class TestToolValidation:
             name="Test",
             description="Test tool for validation testing purposes",
             input_schema={"properties": {}},  # Missing "type"
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         with pytest.raises(ValueError, match="Invalid input_schema"):
@@ -376,7 +370,7 @@ class TestToolValidation:
             name="Test",
             description="Test tool for validation testing purposes",
             input_schema={"type": "object"},  # Missing "properties"
-            execute_func=lambda p: p
+            execute_func=lambda p: p,
         )
 
         with pytest.raises(ValueError, match="Invalid input_schema"):
@@ -391,7 +385,7 @@ class TestToolValidation:
             name="Test",
             description="Test tool for validation testing purposes",
             input_schema={"type": "object", "properties": {}},
-            execute_func="not_callable"  # String instead of function
+            execute_func="not_callable",  # String instead of function
         )
 
         with pytest.raises(ValueError, match="execute_func is not callable"):
@@ -408,7 +402,7 @@ class TestToolValidation:
             description="Test tool for validation testing purposes",
             input_schema={"type": "object", "properties": {}},
             execute_func=lambda p: p,
-            plugins={"invalid_layer": "some_plugin"}
+            plugins={"invalid_layer": "some_plugin"},
         )
 
         with pytest.raises(ValueError, match="Invalid plugin layer"):
@@ -427,7 +421,7 @@ class TestToolValidation:
             description="Test tool for validation testing purposes",
             input_schema={"type": "object", "properties": {}},
             execute_func=lambda p: p,
-            plugins={"schema": "nonexistent_plugin"}
+            plugins={"schema": "nonexistent_plugin"},
         )
 
         with pytest.raises(ValueError, match="Plugin .* not found"):
@@ -449,7 +443,7 @@ class TestThreadSafety:
                     name=f"Tool {tool_id}",
                     description="Concurrent registration test tool",
                     input_schema={"type": "object", "properties": {}},
-                    execute_func=lambda p: p
+                    execute_func=lambda p: p,
                 )
                 registry.register(tool)
             except Exception as e:

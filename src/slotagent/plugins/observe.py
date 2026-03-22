@@ -22,10 +22,10 @@ class LogPlugin(PluginInterface):
         >>> plugin = LogPlugin(level='INFO')
     """
 
-    layer = 'observe'
-    plugin_id = 'observe_log'
+    layer = "observe"
+    plugin_id = "observe_log"
 
-    def __init__(self, level: str = 'INFO', logger_name: str = 'slotagent'):
+    def __init__(self, level: str = "INFO", logger_name: str = "slotagent"):
         """
         Initialize LogPlugin.
 
@@ -40,9 +40,7 @@ class LogPlugin(PluginInterface):
         # Add handler if not exists
         if not self.logger.handlers:
             handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
+            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
 
@@ -62,8 +60,7 @@ class LogPlugin(PluginInterface):
         """
         # Log execution info
         self.logger.info(
-            f"Tool execution: {context.tool_id} "
-            f"(execution_id={context.execution_id})"
+            f"Tool execution: {context.tool_id} " f"(execution_id={context.execution_id})"
         )
 
         # Get previous results for logging
@@ -72,9 +69,5 @@ class LogPlugin(PluginInterface):
                 self.logger.debug(f"  {layer}: {data}")
 
         return PluginResult(
-            success=True,
-            data={
-                'logged': True,
-                'execution_id': context.execution_id
-            }
+            success=True, data={"logged": True, "execution_id": context.execution_id}
         )

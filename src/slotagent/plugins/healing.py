@@ -21,8 +21,8 @@ class HealingRetry(PluginInterface):
         >>> plugin = HealingRetry(max_retries=3, initial_delay=1.0)
     """
 
-    layer = 'healing'
-    plugin_id = 'healing_retry'
+    layer = "healing"
+    plugin_id = "healing_retry"
 
     def __init__(self, max_retries: int = 3, initial_delay: float = 1.0):
         """
@@ -60,9 +60,9 @@ class HealingRetry(PluginInterface):
         return PluginResult(
             success=True,
             data={
-                'recovered': False,
-                'max_retries': self.max_retries,
-                'retry_count': 0,
-                'message': 'Healing attempted (Phase 3 placeholder)'
-            }
+                "recovered": False,
+                "max_retries": self.max_retries,
+                "retry_count": 0,
+                "message": "Healing attempted (Phase 3 placeholder)",
+            },
         )

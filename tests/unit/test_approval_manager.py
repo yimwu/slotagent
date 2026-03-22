@@ -4,12 +4,13 @@
 Unit tests for ApprovalManager.
 """
 
-import pytest
-import time
 import threading
+import time
+
+import pytest
 
 from slotagent.core.approval_manager import ApprovalManager
-from slotagent.types import ApprovalStatus, ApprovalRecord
+from slotagent.types import ApprovalStatus
 
 
 class TestApprovalManagerCreation:
@@ -37,7 +38,7 @@ class TestCreateApproval:
             execution_id="exec-123",
             tool_id="test_tool",
             tool_name="Test Tool",
-            params={"key": "value"}
+            params={"key": "value"},
         )
 
         assert approval_id is not None
@@ -52,7 +53,7 @@ class TestCreateApproval:
             execution_id="exec-123",
             tool_id="test_tool",
             tool_name="Test Tool",
-            params={"key": "value"}
+            params={"key": "value"},
         )
 
         record = manager.get_approval(approval_id)
@@ -73,7 +74,7 @@ class TestCreateApproval:
             tool_id="test_tool",
             tool_name="Test Tool",
             params={},
-            timeout=600.0  # Custom timeout
+            timeout=600.0,  # Custom timeout
         )
 
         record = manager.get_approval(approval_id)
@@ -89,7 +90,7 @@ class TestCreateApproval:
             tool_id="test_tool",
             tool_name="Test Tool",
             params={},
-            metadata={"risk_level": "high", "amount": 1000}
+            metadata={"risk_level": "high", "amount": 1000},
         )
 
         record = manager.get_approval(approval_id)
@@ -104,10 +105,7 @@ class TestApproveApproval:
         manager = ApprovalManager()
 
         approval_id = manager.create_approval(
-            execution_id="exec-123",
-            tool_id="test_tool",
-            tool_name="Test Tool",
-            params={}
+            execution_id="exec-123", tool_id="test_tool", tool_name="Test Tool", params={}
         )
 
         record = manager.approve(approval_id, approver="user@example.com")
@@ -129,10 +127,7 @@ class TestApproveApproval:
         manager = ApprovalManager()
 
         approval_id = manager.create_approval(
-            execution_id="exec-123",
-            tool_id="test_tool",
-            tool_name="Test Tool",
-            params={}
+            execution_id="exec-123", tool_id="test_tool", tool_name="Test Tool", params={}
         )
 
         manager.approve(approval_id, approver="user1@example.com")
@@ -145,10 +140,7 @@ class TestApproveApproval:
         manager = ApprovalManager()
 
         approval_id = manager.create_approval(
-            execution_id="exec-123",
-            tool_id="test_tool",
-            tool_name="Test Tool",
-            params={}
+            execution_id="exec-123", tool_id="test_tool", tool_name="Test Tool", params={}
         )
 
         manager.reject(approval_id, approver="user@example.com", reason="Test")
@@ -165,16 +157,11 @@ class TestRejectApproval:
         manager = ApprovalManager()
 
         approval_id = manager.create_approval(
-            execution_id="exec-123",
-            tool_id="test_tool",
-            tool_name="Test Tool",
-            params={}
+            execution_id="exec-123", tool_id="test_tool", tool_name="Test Tool", params={}
         )
 
         record = manager.reject(
-            approval_id,
-            approver="user@example.com",
-            reason="Insufficient justification"
+            approval_id, approver="user@example.com", reason="Insufficient justification"
         )
 
         assert record.status == ApprovalStatus.REJECTED
@@ -195,10 +182,7 @@ class TestRejectApproval:
         manager = ApprovalManager()
 
         approval_id = manager.create_approval(
-            execution_id="exec-123",
-            tool_id="test_tool",
-            tool_name="Test Tool",
-            params={}
+            execution_id="exec-123", tool_id="test_tool", tool_name="Test Tool", params={}
         )
 
         manager.approve(approval_id, approver="user@example.com")
@@ -218,7 +202,7 @@ class TestGetApproval:
             execution_id="exec-123",
             tool_id="test_tool",
             tool_name="Test Tool",
-            params={"key": "value"}
+            params={"key": "value"},
         )
 
         record = manager.get_approval(approval_id)
@@ -241,10 +225,7 @@ class TestCheckTimeouts:
         manager = ApprovalManager(default_timeout=0.1)  # 100ms timeout
 
         approval_id = manager.create_approval(
-            execution_id="exec-123",
-            tool_id="test_tool",
-            tool_name="Test Tool",
-            params={}
+            execution_id="exec-123", tool_id="test_tool", tool_name="Test Tool", params={}
         )
 
         # Wait for timeout
@@ -261,10 +242,7 @@ class TestCheckTimeouts:
         manager = ApprovalManager(default_timeout=10.0)
 
         approval_id = manager.create_approval(
-            execution_id="exec-123",
-            tool_id="test_tool",
-            tool_name="Test Tool",
-            params={}
+            execution_id="exec-123", tool_id="test_tool", tool_name="Test Tool", params={}
         )
 
         expired_ids = manager.check_timeouts()
@@ -278,10 +256,7 @@ class TestCheckTimeouts:
         manager = ApprovalManager(default_timeout=0.1)
 
         approval_id = manager.create_approval(
-            execution_id="exec-123",
-            tool_id="test_tool",
-            tool_name="Test Tool",
-            params={}
+            execution_id="exec-123", tool_id="test_tool", tool_name="Test Tool", params={}
         )
 
         # Approve before timeout
@@ -340,10 +315,7 @@ class TestThreadSafety:
 
         def create_approval(i):
             approval_id = manager.create_approval(
-                execution_id=f"exec-{i}",
-                tool_id=f"tool{i}",
-                tool_name=f"Tool {i}",
-                params={}
+                execution_id=f"exec-{i}", tool_id=f"tool{i}", tool_name=f"Tool {i}", params={}
             )
             with lock:
                 created_ids.append(approval_id)
@@ -365,10 +337,7 @@ class TestThreadSafety:
         manager = ApprovalManager()
 
         approval_id = manager.create_approval(
-            execution_id="exec-123",
-            tool_id="test_tool",
-            tool_name="Test Tool",
-            params={}
+            execution_id="exec-123", tool_id="test_tool", tool_name="Test Tool", params={}
         )
 
         results = []
@@ -404,5 +373,6 @@ class TestThreadSafety:
 
         # One should succeed, one should fail
         assert len(results) == 2
-        assert ("approved" in results and "error" in results) or \
-               ("rejected" in results and "error" in results)
+        assert ("approved" in results and "error" in results) or (
+            "rejected" in results and "error" in results
+        )

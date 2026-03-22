@@ -21,8 +21,8 @@ class ReflectSimple(PluginInterface):
         >>> plugin = ReflectSimple()
     """
 
-    layer = 'reflect'
-    plugin_id = 'reflect_simple'
+    layer = "reflect"
+    plugin_id = "reflect_simple"
 
     def validate(self) -> bool:
         """Validate plugin configuration"""
@@ -47,7 +47,7 @@ class ReflectSimple(PluginInterface):
         return PluginResult(
             success=True,
             data={
-                'task_completed': True,
-                'message': 'Task assumed completed (Phase 3 placeholder)'
-            }
+                "task_completed": True,
+                "message": "Task assumed completed (Phase 3 placeholder)",
+            },
         )

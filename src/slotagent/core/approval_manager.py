@@ -50,7 +50,7 @@ class ApprovalManager:
         tool_name: str,
         params: Dict,
         timeout: Optional[float] = None,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
     ) -> str:
         """
         Create an approval request.
@@ -92,7 +92,7 @@ class ApprovalManager:
             params=params.copy() if params else {},
             created_at=created_at,
             timeout_at=timeout_at,
-            metadata=metadata.copy() if metadata else None
+            metadata=metadata.copy() if metadata else None,
         )
 
         with self._lock:
@@ -100,11 +100,7 @@ class ApprovalManager:
 
         return approval_id
 
-    def approve(
-        self,
-        approval_id: str,
-        approver: str
-    ) -> ApprovalRecord:
+    def approve(self, approval_id: str, approver: str) -> ApprovalRecord:
         """
         Approve an approval request.
 
@@ -151,18 +147,13 @@ class ApprovalManager:
                 timeout_at=record.timeout_at,
                 approved_at=time.time(),
                 approver=approver,
-                metadata=record.metadata
+                metadata=record.metadata,
             )
 
             self._approvals[approval_id] = updated_record
             return updated_record
 
-    def reject(
-        self,
-        approval_id: str,
-        approver: str,
-        reason: str
-    ) -> ApprovalRecord:
+    def reject(self, approval_id: str, approver: str, reason: str) -> ApprovalRecord:
         """
         Reject an approval request.
 
@@ -215,7 +206,7 @@ class ApprovalManager:
                 rejected_at=time.time(),
                 approver=approver,
                 reject_reason=reason,
-                metadata=record.metadata
+                metadata=record.metadata,
             )
 
             self._approvals[approval_id] = updated_record
@@ -260,8 +251,7 @@ class ApprovalManager:
         with self._lock:
             for approval_id, record in self._approvals.items():
                 # Only mark PENDING approvals that have timed out
-                if (record.status == ApprovalStatus.PENDING and
-                        current_time > record.timeout_at):
+                if record.status == ApprovalStatus.PENDING and current_time > record.timeout_at:
 
                     # Update to TIMEOUT status
                     updated_record = ApprovalRecord(
@@ -275,7 +265,7 @@ class ApprovalManager:
                         timeout_at=record.timeout_at,
                         rejected_at=current_time,  # Use current time as rejection time
                         reject_reason="Approval request timed out",
-                        metadata=record.metadata
+                        metadata=record.metadata,
                     )
 
                     self._approvals[approval_id] = updated_record
@@ -297,6 +287,7 @@ class ApprovalManager:
         """
         with self._lock:
             return [
-                record for record in self._approvals.values()
+                record
+                for record in self._approvals.values()
                 if record.status == ApprovalStatus.PENDING
             ]

@@ -6,11 +6,11 @@ Unit tests for Schema plugins.
 Tests parameter validation logic for SchemaDefault and SchemaStrict.
 """
 
-import pytest
-
-from slotagent.types import PluginContext
 import time
 import uuid
+
+
+from slotagent.types import PluginContext
 
 
 class TestSchemaDefault:
@@ -22,22 +22,20 @@ class TestSchemaDefault:
 
         plugin = SchemaDefault(
             schema={
-                'type': 'object',
-                'properties': {
-                    'location': {'type': 'string'}
-                },
-                'required': ['location']
+                "type": "object",
+                "properties": {"location": {"type": "string"}},
+                "required": ["location"],
             }
         )
 
         # Valid params
         context = PluginContext(
-            tool_id='test',
-            tool_name='Test',
-            params={'location': 'Beijing'},
-            layer='schema',
+            tool_id="test",
+            tool_name="Test",
+            params={"location": "Beijing"},
+            layer="schema",
             execution_id=str(uuid.uuid4()),
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         result = plugin.execute(context)
@@ -50,78 +48,66 @@ class TestSchemaDefault:
 
         plugin = SchemaDefault(
             schema={
-                'type': 'object',
-                'properties': {
-                    'location': {'type': 'string'}
-                },
-                'required': ['location']
+                "type": "object",
+                "properties": {"location": {"type": "string"}},
+                "required": ["location"],
             }
         )
 
         context = PluginContext(
-            tool_id='test',
-            tool_name='Test',
+            tool_id="test",
+            tool_name="Test",
             params={},  # Missing 'location'
-            layer='schema',
+            layer="schema",
             execution_id=str(uuid.uuid4()),
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         result = plugin.execute(context)
         assert result.success is False
         assert result.should_continue is False
-        assert 'location' in result.error.lower()
-        assert result.error_type == 'ValidationError'
+        assert "location" in result.error.lower()
+        assert result.error_type == "ValidationError"
 
     def test_schema_default_validates_type(self):
         """Test that SchemaDefault validates parameter types"""
         from slotagent.plugins.schema import SchemaDefault
 
         plugin = SchemaDefault(
-            schema={
-                'type': 'object',
-                'properties': {
-                    'count': {'type': 'integer'}
-                }
-            }
+            schema={"type": "object", "properties": {"count": {"type": "integer"}}}
         )
 
         # Wrong type
         context = PluginContext(
-            tool_id='test',
-            tool_name='Test',
-            params={'count': 'not_an_integer'},
-            layer='schema',
+            tool_id="test",
+            tool_name="Test",
+            params={"count": "not_an_integer"},
+            layer="schema",
             execution_id=str(uuid.uuid4()),
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         result = plugin.execute(context)
         assert result.success is False
         assert result.should_continue is False
-        assert result.error_type == 'ValidationError'
+        assert result.error_type == "ValidationError"
 
     def test_schema_default_validates_minimum(self):
         """Test that SchemaDefault validates minimum constraint"""
         from slotagent.plugins.schema import SchemaDefault
 
         plugin = SchemaDefault(
-            schema={
-                'type': 'object',
-                'properties': {
-                    'age': {'type': 'integer', 'minimum': 0}
-                }
-            }
+            schema={"type": "object", "properties": {"age": {"type": "integer", "minimum": 0}}}
         )
 
         # Below minimum
         context = PluginContext(
-            tool_id='test',
-            tool_name='Test',
-            params={'age': -5},
-            layer='schema',
+            tool_id="test",
+            tool_name="Test",
+            params={"age": -5},
+            layer="schema",
             execution_id=str(uuid.uuid4()),
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         result = plugin.execute(context)
@@ -135,12 +121,12 @@ class TestSchemaDefault:
         plugin = SchemaDefault(schema={})
 
         context = PluginContext(
-            tool_id='test',
-            tool_name='Test',
-            params={'any': 'value'},
-            layer='schema',
+            tool_id="test",
+            tool_name="Test",
+            params={"any": "value"},
+            layer="schema",
             execution_id=str(uuid.uuid4()),
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         result = plugin.execute(context)
@@ -162,28 +148,23 @@ class TestSchemaStrict:
         from slotagent.plugins.schema import SchemaStrict
 
         plugin = SchemaStrict(
-            schema={
-                'type': 'object',
-                'properties': {
-                    'location': {'type': 'string'}
-                }
-            }
+            schema={"type": "object", "properties": {"location": {"type": "string"}}}
         )
 
         # Has additional property
         context = PluginContext(
-            tool_id='test',
-            tool_name='Test',
-            params={'location': 'Beijing', 'extra': 'value'},
-            layer='schema',
+            tool_id="test",
+            tool_name="Test",
+            params={"location": "Beijing", "extra": "value"},
+            layer="schema",
             execution_id=str(uuid.uuid4()),
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         result = plugin.execute(context)
         assert result.success is False
         assert result.should_continue is False
-        assert 'additional' in result.error.lower() or 'extra' in result.error.lower()
+        assert "additional" in result.error.lower() or "extra" in result.error.lower()
 
     def test_schema_strict_enforces_pattern(self):
         """Test that SchemaStrict enforces pattern matching"""
@@ -191,21 +172,19 @@ class TestSchemaStrict:
 
         plugin = SchemaStrict(
             schema={
-                'type': 'object',
-                'properties': {
-                    'email': {'type': 'string', 'pattern': r'^[\w\.-]+@[\w\.-]+\.\w+$'}
-                }
+                "type": "object",
+                "properties": {"email": {"type": "string", "pattern": r"^[\w\.-]+@[\w\.-]+\.\w+$"}},
             }
         )
 
         # Invalid email pattern
         context = PluginContext(
-            tool_id='test',
-            tool_name='Test',
-            params={'email': 'invalid-email'},
-            layer='schema',
+            tool_id="test",
+            tool_name="Test",
+            params={"email": "invalid-email"},
+            layer="schema",
             execution_id=str(uuid.uuid4()),
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         result = plugin.execute(context)
@@ -218,21 +197,19 @@ class TestSchemaStrict:
 
         plugin = SchemaStrict(
             schema={
-                'type': 'object',
-                'properties': {
-                    'status': {'type': 'string', 'enum': ['active', 'inactive']}
-                }
+                "type": "object",
+                "properties": {"status": {"type": "string", "enum": ["active", "inactive"]}},
             }
         )
 
         # Invalid enum value
         context = PluginContext(
-            tool_id='test',
-            tool_name='Test',
-            params={'status': 'pending'},
-            layer='schema',
+            tool_id="test",
+            tool_name="Test",
+            params={"status": "pending"},
+            layer="schema",
             execution_id=str(uuid.uuid4()),
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         result = plugin.execute(context)
@@ -245,28 +222,25 @@ class TestSchemaStrict:
 
         plugin = SchemaStrict(
             schema={
-                'type': 'object',
-                'properties': {
-                    'user': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {'type': 'string'},
-                            'age': {'type': 'integer'}
-                        },
-                        'required': ['name']
+                "type": "object",
+                "properties": {
+                    "user": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}, "age": {"type": "integer"}},
+                        "required": ["name"],
                     }
-                }
+                },
             }
         )
 
         # Missing nested required field
         context = PluginContext(
-            tool_id='test',
-            tool_name='Test',
-            params={'user': {'age': 25}},  # Missing 'name'
-            layer='schema',
+            tool_id="test",
+            tool_name="Test",
+            params={"user": {"age": 25}},  # Missing 'name'
+            layer="schema",
             execution_id=str(uuid.uuid4()),
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         result = plugin.execute(context)
@@ -281,12 +255,12 @@ class TestSchemaPluginAttributes:
         """Test SchemaDefault has correct layer and plugin_id"""
         from slotagent.plugins.schema import SchemaDefault
 
-        assert SchemaDefault.layer == 'schema'
-        assert SchemaDefault.plugin_id == 'schema_default'
+        assert SchemaDefault.layer == "schema"
+        assert SchemaDefault.plugin_id == "schema_default"
 
     def test_schema_strict_has_correct_attributes(self):
         """Test SchemaStrict has correct layer and plugin_id"""
         from slotagent.plugins.schema import SchemaStrict
 
-        assert SchemaStrict.layer == 'schema'
-        assert SchemaStrict.plugin_id == 'schema_strict'
+        assert SchemaStrict.layer == "schema"
+        assert SchemaStrict.plugin_id == "schema_strict"

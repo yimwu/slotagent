@@ -41,11 +41,11 @@ class TestCoreSchedulerBasicExecution:
         scheduler.register_tool(WEATHER_TOOL)
 
         # Execute
-        context = scheduler.execute('weather_query', {'location': 'Beijing'})
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
 
         assert context.status == ExecutionStatus.COMPLETED
         assert context.final_result is not None
-        assert context.final_result['location'] == 'Beijing'
+        assert context.final_result["location"] == "Beijing"
         assert context.error is None
 
     def test_execute_tool_not_found_raises_error(self):
@@ -56,7 +56,7 @@ class TestCoreSchedulerBasicExecution:
         scheduler = CoreScheduler()
 
         with pytest.raises(ToolNotFoundError, match="not found"):
-            scheduler.execute('nonexistent_tool', {})
+            scheduler.execute("nonexistent_tool", {})
 
     def test_execute_creates_execution_context(self):
         """Test that execute creates proper execution context"""
@@ -66,12 +66,12 @@ class TestCoreSchedulerBasicExecution:
         scheduler.plugin_pool.register_global_plugin(MockSchemaPlugin())
         scheduler.register_tool(WEATHER_TOOL)
 
-        context = scheduler.execute('weather_query', {'location': 'Beijing'})
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
 
         # Verify context fields
-        assert context.tool_id == 'weather_query'
-        assert context.tool_name == 'Weather Query'
-        assert context.params == {'location': 'Beijing'}
+        assert context.tool_id == "weather_query"
+        assert context.tool_name == "Weather Query"
+        assert context.params == {"location": "Beijing"}
         assert context.execution_id is not None
         assert len(context.execution_id) > 0
         assert context.start_time > 0
@@ -86,7 +86,7 @@ class TestCoreSchedulerBasicExecution:
         scheduler.register_tool(WEATHER_TOOL)
 
         # Should still work, just skips plugin chain
-        context = scheduler.execute('weather_query', {'location': 'Beijing'})
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
 
         assert context.status == ExecutionStatus.COMPLETED
         assert len(context.plugin_results) == 0
@@ -110,17 +110,17 @@ class TestPluginChainExecution:
 
         scheduler.register_tool(WEATHER_TOOL)
 
-        context = scheduler.execute('weather_query', {'location': 'Beijing'})
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
 
         # Verify all plugins executed
-        assert 'schema' in context.plugin_results
-        assert 'guard' in context.plugin_results
-        assert 'reflect' in context.plugin_results
-        assert 'observe' in context.plugin_results
+        assert "schema" in context.plugin_results
+        assert "guard" in context.plugin_results
+        assert "reflect" in context.plugin_results
+        assert "observe" in context.plugin_results
 
         # Verify execution order by checking plugin data
-        assert context.plugin_results['schema'].data['plugin'] == 'schema_mock'
-        assert context.plugin_results['guard'].data['plugin'] == 'guard_mock'
+        assert context.plugin_results["schema"].data["plugin"] == "schema_mock"
+        assert context.plugin_results["guard"].data["plugin"] == "guard_mock"
 
     def test_schema_validation_failure_stops_execution(self):
         """Test that schema validation failure stops plugin chain"""
@@ -129,8 +129,8 @@ class TestPluginChainExecution:
 
         # Create failing schema plugin
         class FailingSchemaPlugin(PluginInterface):
-            layer = 'schema'
-            plugin_id = 'schema_failing'
+            layer = "schema"
+            plugin_id = "schema_failing"
 
             def validate(self):
                 return True
@@ -140,7 +140,7 @@ class TestPluginChainExecution:
                     success=False,
                     should_continue=False,
                     error="Validation failed",
-                    error_type="ValidationError"
+                    error_type="ValidationError",
                 )
 
         scheduler = CoreScheduler()
@@ -148,12 +148,12 @@ class TestPluginChainExecution:
         scheduler.plugin_pool.register_global_plugin(MockGuardPlugin())
         scheduler.register_tool(WEATHER_TOOL)
 
-        context = scheduler.execute('weather_query', {})
+        context = scheduler.execute("weather_query", {})
 
         # Should fail at schema
         assert context.status == ExecutionStatus.FAILED
-        assert 'schema' in context.plugin_results
-        assert 'guard' not in context.plugin_results  # Should not execute
+        assert "schema" in context.plugin_results
+        assert "guard" not in context.plugin_results  # Should not execute
         assert context.error is not None
 
     def test_guard_blocking_stops_execution(self):
@@ -162,8 +162,8 @@ class TestPluginChainExecution:
         from slotagent.interfaces import PluginInterface
 
         class BlockingGuardPlugin(PluginInterface):
-            layer = 'guard'
-            plugin_id = 'guard_blocking'
+            layer = "guard"
+            plugin_id = "guard_blocking"
 
             def validate(self):
                 return True
@@ -172,7 +172,7 @@ class TestPluginChainExecution:
                 return PluginResult(
                     success=True,
                     should_continue=False,
-                    data={'blocked': True, 'reason': 'High risk operation'}
+                    data={"blocked": True, "reason": "High risk operation"},
                 )
 
         scheduler = CoreScheduler()
@@ -180,12 +180,12 @@ class TestPluginChainExecution:
         scheduler.plugin_pool.register_global_plugin(BlockingGuardPlugin())
         scheduler.register_tool(WEATHER_TOOL)
 
-        context = scheduler.execute('weather_query', {'location': 'Beijing'})
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
 
         # Should be blocked
         assert context.status == ExecutionStatus.FAILED
-        assert 'schema' in context.plugin_results
-        assert 'guard' in context.plugin_results
+        assert "schema" in context.plugin_results
+        assert "guard" in context.plugin_results
         assert context.final_result is None
 
     def test_previous_results_passed_to_plugins(self):
@@ -196,28 +196,28 @@ class TestPluginChainExecution:
         executed_contexts = []
 
         class TrackingGuardPlugin(PluginInterface):
-            layer = 'guard'
-            plugin_id = 'guard_tracking'
+            layer = "guard"
+            plugin_id = "guard_tracking"
 
             def validate(self):
                 return True
 
             def execute(self, context: PluginContext):
                 executed_contexts.append(context)
-                return PluginResult(success=True, data={'guard_data': 'test'})
+                return PluginResult(success=True, data={"guard_data": "test"})
 
         scheduler = CoreScheduler()
         scheduler.plugin_pool.register_global_plugin(MockSchemaPlugin())
         scheduler.plugin_pool.register_global_plugin(TrackingGuardPlugin())
         scheduler.register_tool(WEATHER_TOOL)
 
-        scheduler.execute('weather_query', {'location': 'Beijing'})
+        scheduler.execute("weather_query", {"location": "Beijing"})
 
         # Verify Guard plugin received Schema results
         guard_context = executed_contexts[0]
         assert guard_context.previous_results is not None
-        assert 'schema' in guard_context.previous_results
-        assert guard_context.previous_results['schema']['plugin'] == 'schema_mock'
+        assert "schema" in guard_context.previous_results
+        assert guard_context.previous_results["schema"]["plugin"] == "schema_mock"
 
 
 class TestToolLevelPluginPriority:
@@ -226,7 +226,6 @@ class TestToolLevelPluginPriority:
     def test_tool_plugin_overrides_global(self):
         """Test that tool-specific plugin overrides global plugin"""
         from slotagent.core.core_scheduler import CoreScheduler
-        from slotagent.interfaces import PluginInterface
         from tests.fixtures.sample_plugins import AlternativeSchemaPlugin
 
         scheduler = CoreScheduler()
@@ -234,17 +233,17 @@ class TestToolLevelPluginPriority:
         scheduler.plugin_pool.register_global_plugin(AlternativeSchemaPlugin())
 
         # Configure tool to use alternative schema
-        scheduler.plugin_pool.register_tool_plugins('weather_query', {
-            'schema': 'schema_alternative'
-        })
+        scheduler.plugin_pool.register_tool_plugins(
+            "weather_query", {"schema": "schema_alternative"}
+        )
 
         scheduler.register_tool(WEATHER_TOOL)
 
-        context = scheduler.execute('weather_query', {'location': 'Beijing'})
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
 
         # Should use alternative schema
-        schema_result = context.plugin_results['schema']
-        assert schema_result.data['plugin'] == 'schema_alternative'
+        schema_result = context.plugin_results["schema"]
+        assert schema_result.data["plugin"] == "schema_alternative"
 
 
 class TestStateManagement:
@@ -258,7 +257,7 @@ class TestStateManagement:
         scheduler.register_tool(WEATHER_TOOL)
 
         # We can't easily check intermediate state, but can verify final state
-        context = scheduler.execute('weather_query', {'location': 'Beijing'})
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
 
         # Should end in COMPLETED
         assert context.status == ExecutionStatus.COMPLETED
@@ -271,7 +270,7 @@ class TestStateManagement:
         scheduler.plugin_pool.register_global_plugin(MockSchemaPlugin())
         scheduler.register_tool(FAILING_TOOL)
 
-        context = scheduler.execute('failing_tool', {})
+        context = scheduler.execute("failing_tool", {})
 
         assert context.status == ExecutionStatus.FAILED
         assert context.error is not None
@@ -282,30 +281,30 @@ class TestStateManagement:
         from slotagent.types import ToolExecutionContext
 
         completed_context = ToolExecutionContext(
-            tool_id='test',
-            tool_name='Test',
+            tool_id="test",
+            tool_name="Test",
             params={},
             execution_id=str(uuid.uuid4()),
             status=ExecutionStatus.COMPLETED,
-            start_time=time.time()
+            start_time=time.time(),
         )
 
         failed_context = ToolExecutionContext(
-            tool_id='test',
-            tool_name='Test',
+            tool_id="test",
+            tool_name="Test",
             params={},
             execution_id=str(uuid.uuid4()),
             status=ExecutionStatus.FAILED,
-            start_time=time.time()
+            start_time=time.time(),
         )
 
         running_context = ToolExecutionContext(
-            tool_id='test',
-            tool_name='Test',
+            tool_id="test",
+            tool_name="Test",
             params={},
             execution_id=str(uuid.uuid4()),
             status=ExecutionStatus.RUNNING,
-            start_time=time.time()
+            start_time=time.time(),
         )
 
         assert completed_context.is_terminal() is True
@@ -324,7 +323,7 @@ class TestToolRegistration:
         scheduler.register_tool(WEATHER_TOOL)
 
         # Should be able to execute
-        context = scheduler.execute('weather_query', {'location': 'Beijing'})
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
         assert context.status == ExecutionStatus.COMPLETED
 
     def test_register_duplicate_tool_raises_error(self):
@@ -344,9 +343,9 @@ class TestToolRegistration:
         scheduler = CoreScheduler()
         scheduler.register_tool(WEATHER_TOOL)
 
-        tool = scheduler.get_tool('weather_query')
+        tool = scheduler.get_tool("weather_query")
         assert tool is not None
-        assert tool.tool_id == 'weather_query'
+        assert tool.tool_id == "weather_query"
 
     def test_get_nonexistent_tool_returns_none(self):
         """Test getting nonexistent tool returns None"""
@@ -354,7 +353,7 @@ class TestToolRegistration:
 
         scheduler = CoreScheduler()
 
-        tool = scheduler.get_tool('nonexistent')
+        tool = scheduler.get_tool("nonexistent")
         assert tool is None
 
 
@@ -368,7 +367,7 @@ class TestExecutionMetrics:
         scheduler = CoreScheduler()
         scheduler.register_tool(WEATHER_TOOL)
 
-        context = scheduler.execute('weather_query', {'location': 'Beijing'})
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
 
         assert context.start_time > 0
         assert context.end_time >= context.start_time
@@ -382,8 +381,8 @@ class TestExecutionMetrics:
         scheduler = CoreScheduler()
         scheduler.register_tool(WEATHER_TOOL)
 
-        context1 = scheduler.execute('weather_query', {'location': 'Beijing'})
-        context2 = scheduler.execute('weather_query', {'location': 'Shanghai'})
+        context1 = scheduler.execute("weather_query", {"location": "Beijing"})
+        context2 = scheduler.execute("weather_query", {"location": "Shanghai"})
 
         assert context1.execution_id != context2.execution_id
 
@@ -400,7 +399,7 @@ class TestErrorHandling:
         scheduler.register_tool(FAILING_TOOL)
 
         # Should not raise, but return FAILED context
-        context = scheduler.execute('failing_tool', {})
+        context = scheduler.execute("failing_tool", {})
 
         assert context.status == ExecutionStatus.FAILED
         assert "Tool execution failed" in context.error
@@ -411,8 +410,8 @@ class TestErrorHandling:
         from slotagent.interfaces import PluginInterface
 
         class CrashingPlugin(PluginInterface):
-            layer = 'schema'
-            plugin_id = 'schema_crashing'
+            layer = "schema"
+            plugin_id = "schema_crashing"
 
             def validate(self):
                 return True
@@ -425,7 +424,7 @@ class TestErrorHandling:
         scheduler.register_tool(WEATHER_TOOL)
 
         # Should not crash, but handle gracefully
-        context = scheduler.execute('weather_query', {})
+        context = scheduler.execute("weather_query", {})
 
         assert context.status == ExecutionStatus.FAILED
         assert context.error is not None
@@ -436,10 +435,10 @@ class TestApprovalWorkflow:
 
     def test_pending_approval_sets_correct_state(self):
         """Test that guard pending approval sets PENDING_APPROVAL state"""
-        from slotagent.core.core_scheduler import CoreScheduler
         from slotagent.core.approval_manager import ApprovalManager
-        from slotagent.plugins.guard import GuardHumanInLoop
+        from slotagent.core.core_scheduler import CoreScheduler
         from slotagent.core.hook_manager import HookManager
+        from slotagent.plugins.guard import GuardHumanInLoop
 
         manager = ApprovalManager()
         hook_manager = HookManager()
@@ -453,12 +452,13 @@ class TestApprovalWorkflow:
 
         # Track approval events
         wait_approval_events = []
+
         def on_wait_approval(event):
             wait_approval_events.append(event)
 
-        hook_manager.subscribe('wait_approval', on_wait_approval)
+        hook_manager.subscribe("wait_approval", on_wait_approval)
 
-        context = scheduler.execute('payment_refund', {'amount': 100})
+        context = scheduler.execute("payment_refund", {"amount": 100})
 
         # Should be in PENDING_APPROVAL state
         assert context.status == ExecutionStatus.PENDING_APPROVAL

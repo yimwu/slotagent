@@ -33,11 +33,11 @@ class PluginPool:
         """Initialize empty plugin pool"""
         # Global plugins: {layer: {plugin_id: plugin_instance}}
         self._global_plugins: Dict[str, Dict[str, PluginInterface]] = {
-            'schema': {},
-            'guard': {},
-            'healing': {},
-            'reflect': {},
-            'observe': {}
+            "schema": {},
+            "guard": {},
+            "healing": {},
+            "reflect": {},
+            "observe": {},
         }
 
         # Tool-specific plugin configs: {tool_id: {layer: plugin_id}}
@@ -70,26 +70,18 @@ class PluginPool:
 
         # Validate plugin
         if not plugin.validate():
-            raise PluginConfigError(
-                f"Plugin '{plugin.plugin_id}' validation failed"
-            )
+            raise PluginConfigError(f"Plugin '{plugin.plugin_id}' validation failed")
 
         # Check for duplicate plugin_id
         if plugin.plugin_id in self._plugin_by_id:
-            raise ValueError(
-                f"Plugin '{plugin.plugin_id}' already registered"
-            )
+            raise ValueError(f"Plugin '{plugin.plugin_id}' already registered")
 
         # Register
         layer = plugin.layer
         self._global_plugins[layer][plugin.plugin_id] = plugin
         self._plugin_by_id[plugin.plugin_id] = plugin
 
-    def register_tool_plugins(
-        self,
-        tool_id: str,
-        plugins: Dict[str, str]
-    ) -> None:
+    def register_tool_plugins(self, tool_id: str, plugins: Dict[str, str]) -> None:
         """
         Register tool-specific plugin configuration.
 
@@ -109,19 +101,12 @@ class PluginPool:
         # Validate all plugin_ids exist
         for layer, plugin_id in plugins.items():
             if plugin_id not in self._plugin_by_id:
-                raise ValueError(
-                    f"Plugin '{plugin_id}' not found. "
-                    f"Register it globally first."
-                )
+                raise ValueError(f"Plugin '{plugin_id}' not found. " f"Register it globally first.")
 
         # Register tool config
         self._tool_plugins[tool_id] = plugins
 
-    def get_plugin(
-        self,
-        layer: str,
-        tool_id: Optional[str] = None
-    ) -> Optional[PluginInterface]:
+    def get_plugin(self, layer: str, tool_id: Optional[str] = None) -> Optional[PluginInterface]:
         """
         Get plugin for a specific layer (with tool-level override support).
 
@@ -145,11 +130,9 @@ class PluginPool:
             >>> plugin = pool.get_plugin('schema', 'payment_refund')
         """
         # Validate layer
-        valid_layers = {'schema', 'guard', 'healing', 'reflect', 'observe'}
+        valid_layers = {"schema", "guard", "healing", "reflect", "observe"}
         if layer not in valid_layers:
-            raise ValueError(
-                f"Invalid layer '{layer}'. Must be one of: {valid_layers}"
-            )
+            raise ValueError(f"Invalid layer '{layer}'. Must be one of: {valid_layers}")
 
         # Check tool-level config first
         if tool_id and tool_id in self._tool_plugins:
@@ -197,11 +180,9 @@ class PluginPool:
             >>> for p in plugins:
             ...     print(p.plugin_id)
         """
-        valid_layers = {'schema', 'guard', 'healing', 'reflect', 'observe'}
+        valid_layers = {"schema", "guard", "healing", "reflect", "observe"}
         if layer not in valid_layers:
-            raise ValueError(
-                f"Invalid layer '{layer}'. Must be one of: {valid_layers}"
-            )
+            raise ValueError(f"Invalid layer '{layer}'. Must be one of: {valid_layers}")
 
         return list(self._global_plugins[layer].values())
 
@@ -223,7 +204,7 @@ class PluginPool:
             >>> assert chain[1].layer == 'guard'
         """
         chain = []
-        layers = ['schema', 'guard', 'healing', 'reflect', 'observe']
+        layers = ["schema", "guard", "healing", "reflect", "observe"]
 
         for layer in layers:
             plugin = self.get_plugin(layer, tool_id)

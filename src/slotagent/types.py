@@ -91,11 +91,9 @@ class PluginContext:
     def __post_init__(self):
         """验证字段约束"""
         # 验证 layer
-        valid_layers = {'schema', 'guard', 'healing', 'reflect', 'observe'}
+        valid_layers = {"schema", "guard", "healing", "reflect", "observe"}
         if self.layer not in valid_layers:
-            raise ValueError(
-                f"Invalid layer '{self.layer}'. Must be one of: {valid_layers}"
-            )
+            raise ValueError(f"Invalid layer '{self.layer}'. Must be one of: {valid_layers}")
 
         # 验证 tool_id 格式
         if not self.tool_id or not isinstance(self.tool_id, str):
@@ -280,6 +278,7 @@ class HookEvent:
         timestamp: Event timestamp (Unix timestamp)
         metadata: Optional metadata
     """
+
     event_type: str
     execution_id: str
     tool_id: str
@@ -296,6 +295,7 @@ class BeforeExecEvent:
     Triggered after schema validation and guard checks pass,
     right before calling tool.execute_func().
     """
+
     execution_id: str
     tool_id: str
     tool_name: str
@@ -312,6 +312,7 @@ class AfterExecEvent:
 
     Triggered after tool.execute_func() returns, before reflect plugin.
     """
+
     execution_id: str
     tool_id: str
     tool_name: str
@@ -331,6 +332,7 @@ class FailEvent:
     Triggered when tool.execute_func() raises exception,
     or plugin chain fails.
     """
+
     execution_id: str
     tool_id: str
     tool_name: str
@@ -351,6 +353,7 @@ class GuardBlockEvent:
     Triggered when guard plugin returns should_continue=False
     (but not pending approval).
     """
+
     execution_id: str
     tool_id: str
     tool_name: str
@@ -369,6 +372,7 @@ class WaitApprovalEvent:
 
     Triggered when GuardHumanInLoop plugin requires approval.
     """
+
     execution_id: str
     tool_id: str
     tool_name: str
@@ -405,6 +409,7 @@ class ApprovalRecord:
         reject_reason: Rejection reason
         metadata: Additional context for approval
     """
+
     approval_id: str
     status: ApprovalStatus
     execution_id: str
