@@ -3,13 +3,16 @@
 """
 Guard layer plugins - Permission control and approval.
 
-Provides whitelist/blacklist-based access control for tools.
+Provides whitelist/blacklist-based access control and human-in-the-loop approval.
 """
 
-from typing import List
+from typing import List, Optional, TYPE_CHECKING
 
 from slotagent.interfaces import PluginInterface
 from slotagent.types import PluginContext, PluginResult
+
+if TYPE_CHECKING:
+    from slotagent.core.approval_manager import ApprovalManager
 
 
 class GuardDefault(PluginInterface):
@@ -100,3 +103,116 @@ class GuardDefault(PluginInterface):
             success=True,
             data={'approved': True}
         )
+
+
+class GuardHumanInLoop(PluginInterface):
+    """
+    Human-in-the-Loop guard plugin.
+
+    Triggers approval workflow for high-risk operations.
+    Execution is paused until human approver makes decision.
+
+    Examples:
+        >>> from slotagent.core.approval_manager import ApprovalManager
+        >>> manager = ApprovalManager()
+        >>> plugin = GuardHumanInLoop(
+        ...     approval_manager=manager,
+        ...     timeout=600.0  # 10 minutes
+        ... )
+    """
+
+    layer = 'guard'
+    plugin_id = 'guard_human_in_loop'
+
+    def __init__(
+        self,
+        approval_manager: 'ApprovalManager',
+        timeout: Optional[float] = None
+    ):
+        """
+        Initialize GuardHumanInLoop.
+
+        Args:
+            approval_manager: ApprovalManager instance
+            timeout: Approval timeout (seconds), uses manager default if None
+        """
+        self.approval_manager = approval_manager
+        self.timeout = timeout
+
+    def validate(self) -> bool:
+        """Validate plugin configuration"""
+        return True
+
+    def execute(self, context: PluginContext) -> PluginResult:
+        """
+        Execute human-in-the-loop check.
+
+        Creates approval request and returns should_continue=False
+        to pause execution.
+
+        Args:
+            context: Plugin execution context
+
+        Returns:
+            PluginResult with:
+                - success=True
+                - should_continue=False
+                - data={'pending_approval': True, 'approval_id': ...}
+        """
+        # Create approval request
+        approval_id = self.approval_manager.create_approval(
+            execution_id=context.execution_id,
+            tool_id=context.tool_id,
+            tool_name=context.tool_name,
+            params=context.params,
+            timeout=self.timeout,
+            metadata={
+                'plugin_id': self.plugin_id,
+                'timestamp': context.timestamp
+            }
+        )
+
+        return PluginResult(
+            success=True,
+            should_continue=False,
+            data={
+                'pending_approval': True,
+                'approval_id': approval_id,
+                'approval_context': {
+                    'tool_id': context.tool_id,
+                    'tool_name': context.tool_name,
+                    'params_summary': self._summarize_params(context.params)
+                }
+            }
+        )
+
+    def _summarize_params(self, params: dict) -> str:
+        """
+        Summarize parameters for approval context.
+
+        Args:
+            params: Tool parameters
+
+        Returns:
+            Human-readable parameter summary
+        """
+        if not params:
+            return "No parameters"
+
+        # Simple summary: show top-level keys and values
+        items = []
+        for key, value in list(params.items())[:5]:  # Limit to 5 params
+            if isinstance(value, (str, int, float, bool)):
+                items.append(f"{key}={value}")
+            elif isinstance(value, dict):
+                items.append(f"{key}={{...}}")
+            elif isinstance(value, list):
+                items.append(f"{key}=[{len(value)} items]")
+            else:
+                items.append(f"{key}=<{type(value).__name__}>")
+
+        summary = ", ".join(items)
+        if len(params) > 5:
+            summary += f" (+ {len(params) - 5} more)"
+
+        return summary

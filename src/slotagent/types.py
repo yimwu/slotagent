@@ -35,6 +35,22 @@ class ExecutionStatus(str, Enum):
     FAILED = "failed"  # 执行失败
 
 
+class ApprovalStatus(str, Enum):
+    """
+    审批状态。
+
+    状态转移:
+    PENDING → APPROVED (用户批准)
+    PENDING → REJECTED (用户拒绝)
+    PENDING → TIMEOUT (超时自动拒绝)
+    """
+
+    PENDING = "pending"  # 等待审批
+    APPROVED = "approved"  # 已批准
+    REJECTED = "rejected"  # 已拒绝
+    TIMEOUT = "timeout"  # 已超时
+
+
 @dataclass(frozen=True)
 class PluginContext:
     """
@@ -361,4 +377,44 @@ class WaitApprovalEvent:
     approval_id: str
     approval_context: Optional[Dict[str, Any]] = None
     event_type: str = "wait_approval"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+# =============================================================================
+# Approval System Types
+# =============================================================================
+
+
+@dataclass
+class ApprovalRecord:
+    """
+    Approval record for tracking approval requests.
+
+    Attributes:
+        approval_id: Unique approval identifier (UUID)
+        status: Current approval status
+        execution_id: Associated execution ID
+        tool_id: Tool identifier
+        tool_name: Tool name
+        params: Tool parameters
+        created_at: Creation timestamp
+        timeout_at: Timeout timestamp
+        approved_at: Approval timestamp (None if not approved)
+        rejected_at: Rejection timestamp (None if not rejected)
+        approver: Approver identifier
+        reject_reason: Rejection reason
+        metadata: Additional context for approval
+    """
+    approval_id: str
+    status: ApprovalStatus
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    params: Dict[str, Any]
+    created_at: float
+    timeout_at: float
+    approved_at: Optional[float] = None
+    rejected_at: Optional[float] = None
+    approver: Optional[str] = None
+    reject_reason: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
