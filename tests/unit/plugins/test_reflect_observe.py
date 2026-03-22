@@ -7,7 +7,6 @@ Unit tests for Reflect and Observe plugins.
 import time
 import uuid
 
-
 from slotagent.types import PluginContext
 
 

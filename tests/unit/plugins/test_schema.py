@@ -9,7 +9,6 @@ Tests parameter validation logic for SchemaDefault and SchemaStrict.
 import time
 import uuid
 
-
 from slotagent.types import PluginContext
 
 

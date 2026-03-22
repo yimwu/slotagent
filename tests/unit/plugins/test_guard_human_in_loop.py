@@ -7,7 +7,6 @@ Unit tests for GuardHumanInLoop plugin.
 import time
 import uuid
 
-
 from slotagent.core.approval_manager import ApprovalManager
 from slotagent.plugins.guard import GuardHumanInLoop
 from slotagent.types import ApprovalStatus, PluginContext
