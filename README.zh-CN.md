@@ -2,9 +2,10 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
+[![Release](https://img.shields.io/github/v/release/yimwu/slotagent?include_prereleases)](https://github.com/yimwu/slotagent/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Test Coverage](https://img.shields.io/badge/coverage-96.59%25-brightgreen.svg)]()
+[![Test Coverage](https://img.shields.io/badge/coverage-96.66%25-brightgreen.svg)]()
 [![Tests](https://img.shields.io/badge/tests-179%20passed-brightgreen.svg)]()
 [![Development Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
 
@@ -159,6 +160,21 @@ approval_manager.reject(context.approval_id, approver='...', reason='...')
 
 ### 安装
 
+**方式一：从 GitHub Release 安装（推荐用户使用）**
+
+```bash
+# 直接从 GitHub 安装最新 release
+pip install git+https://github.com/yimwu/slotagent.git@v0.1.0-alpha
+
+# 或下载源码安装
+wget https://github.com/yimwu/slotagent/archive/refs/tags/v0.1.0-alpha.tar.gz
+tar -xzf v0.1.0-alpha.tar.gz
+cd slotagent-0.1.0-alpha
+pip install .
+```
+
+**方式二：从源码安装（开发者使用）**
+
 ```bash
 # 克隆仓库
 git clone https://github.com/yimwu/slotagent.git
@@ -170,6 +186,10 @@ pip install -e .
 # 安装开发依赖（可选）
 pip install -r requirements-dev.txt
 ```
+
+**系统要求：**
+- Python 3.8 或更高版本
+- 核心功能无第三方依赖
 
 ### Hello World 示例
 

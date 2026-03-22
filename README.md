@@ -2,9 +2,10 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
+[![Release](https://img.shields.io/github/v/release/yimwu/slotagent?include_prereleases)](https://github.com/yimwu/slotagent/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Test Coverage](https://img.shields.io/badge/coverage-96.59%25-brightgreen.svg)]()
+[![Test Coverage](https://img.shields.io/badge/coverage-96.66%25-brightgreen.svg)]()
 [![Tests](https://img.shields.io/badge/tests-179%20passed-brightgreen.svg)]()
 [![Development Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
 
@@ -159,6 +160,21 @@ approval_manager.reject(context.approval_id, approver='..', reason='...')
 
 ### Installation
 
+**Option 1: Install from GitHub Release (Recommended for users)**
+
+```bash
+# Install latest release directly from GitHub
+pip install git+https://github.com/yimwu/slotagent.git@v0.1.0-alpha
+
+# Or download and install from source
+wget https://github.com/yimwu/slotagent/archive/refs/tags/v0.1.0-alpha.tar.gz
+tar -xzf v0.1.0-alpha.tar.gz
+cd slotagent-0.1.0-alpha
+pip install .
+```
+
+**Option 2: Install from source (For developers)**
+
 ```bash
 # Clone repository
 git clone https://github.com/yimwu/slotagent.git
@@ -170,6 +186,10 @@ pip install -e .
 # Install development dependencies (optional)
 pip install -r requirements-dev.txt
 ```
+
+**Requirements:**
+- Python 3.8 or higher
+- No third-party dependencies for core functionality
 
 ### Hello World Example
 
