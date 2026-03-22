@@ -8,11 +8,12 @@ SlotAgent 核心数据类型定义。
 - PluginResult: 插件执行结果
 - ToolExecutionContext: 工具执行上下文
 - ExecutionStatus: 执行状态枚举
+- Tool: 工具定义
 """
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 
 class ExecutionStatus(str, Enum):
@@ -195,3 +196,48 @@ class ToolExecutionContext:
             bool: True 表示等待审批
         """
         return self.status == ExecutionStatus.PENDING_APPROVAL
+
+
+@dataclass
+class Tool:
+    """
+    Tool definition - first-class citizen in SlotAgent.
+
+    Each tool can independently configure its plugin chain for
+    fine-grained optimization.
+
+    Attributes:
+        tool_id: Unique tool identifier (lowercase_with_underscore)
+        name: Display name
+        description: Detailed description
+        input_schema: JSON Schema for input validation
+        execute_func: Tool execution function
+        plugins: Tool-level plugin configuration (layer -> plugin_id)
+        metadata: Additional metadata
+
+    Examples:
+        >>> def simple_query(params):
+        ...     return {"results": [...]}
+        >>>
+        >>> tool = Tool(
+        ...     tool_id="simple_query",
+        ...     name="Simple Query",
+        ...     description="Query data from local database",
+        ...     input_schema={
+        ...         "type": "object",
+        ...         "properties": {
+        ...             "table": {"type": "string"}
+        ...         },
+        ...         "required": ["table"]
+        ...     },
+        ...     execute_func=simple_query
+        ... )
+    """
+
+    tool_id: str
+    name: str
+    description: str
+    input_schema: Dict[str, Any]
+    execute_func: Callable[[Dict[str, Any]], Any]
+    plugins: Optional[Dict[str, str]] = None
+    metadata: Optional[Dict[str, Any]] = None

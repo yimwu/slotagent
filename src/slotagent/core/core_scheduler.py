@@ -9,7 +9,7 @@ This is the minimal kernel - only scheduling, no business logic.
 
 import time
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from slotagent.core.plugin_pool import PluginPool
 from slotagent.interfaces import ToolNotFoundError
@@ -19,6 +19,9 @@ from slotagent.types import (
     PluginResult,
     ToolExecutionContext,
 )
+
+if TYPE_CHECKING:
+    from slotagent.core.tool_registry import ToolRegistry
 
 
 class CoreScheduler:
@@ -37,21 +40,43 @@ class CoreScheduler:
     - Hook-driven observability
 
     Usage:
-        >>> scheduler = CoreScheduler()
-        >>> scheduler.plugin_pool.register_global_plugin(SchemaDefault())
-        >>> scheduler.register_tool(weather_tool)
+        >>> from slotagent.core.tool_registry import ToolRegistry
+        >>> plugin_pool = PluginPool()
+        >>> tool_registry = ToolRegistry(plugin_pool)
+        >>> scheduler = CoreScheduler(plugin_pool, tool_registry)
+        >>> plugin_pool.register_global_plugin(SchemaDefault())
+        >>> tool_registry.register(weather_tool)
         >>> context = scheduler.execute('weather_query', {'location': 'Beijing'})
         >>> print(context.status)  # ExecutionStatus.COMPLETED
     """
 
-    def __init__(self):
-        """Initialize core scheduler with plugin pool and tool registry"""
-        self.plugin_pool = PluginPool()
-        self._tool_registry: Dict[str, Any] = {}  # {tool_id: tool_instance}
+    def __init__(
+        self,
+        plugin_pool: Optional[PluginPool] = None,
+        tool_registry: Optional['ToolRegistry'] = None
+    ):
+        """
+        Initialize core scheduler.
+
+        Args:
+            plugin_pool: Optional PluginPool instance (creates new if None)
+            tool_registry: Optional ToolRegistry instance (creates new if None)
+        """
+        if plugin_pool is None:
+            plugin_pool = PluginPool()
+        if tool_registry is None:
+            # Import here to avoid circular dependency
+            from slotagent.core.tool_registry import ToolRegistry
+            tool_registry = ToolRegistry(plugin_pool)
+
+        self.plugin_pool = plugin_pool
+        self.tool_registry = tool_registry
 
     def register_tool(self, tool: Any) -> None:
         """
         Register a tool for execution.
+
+        Deprecated: Use tool_registry.register() instead.
 
         Args:
             tool: Tool instance with tool_id, name, and execute() method
@@ -62,14 +87,13 @@ class CoreScheduler:
         Examples:
             >>> scheduler.register_tool(weather_tool)
         """
-        if tool.tool_id in self._tool_registry:
-            raise ValueError(f"Tool '{tool.tool_id}' already registered")
-
-        self._tool_registry[tool.tool_id] = tool
+        self.tool_registry.register(tool)
 
     def get_tool(self, tool_id: str) -> Optional[Any]:
         """
         Get registered tool by ID.
+
+        Deprecated: Use tool_registry.get_tool() instead.
 
         Args:
             tool_id: Tool identifier
@@ -80,7 +104,7 @@ class CoreScheduler:
         Examples:
             >>> tool = scheduler.get_tool('weather_query')
         """
-        return self._tool_registry.get(tool_id)
+        return self.tool_registry.get_tool(tool_id)
 
     def execute(
         self,
@@ -211,7 +235,7 @@ class CoreScheduler:
 
         # 3. Execute tool
         try:
-            final_result = tool.execute(context.params)
+            final_result = tool.execute_func(context.params)
             context.final_result = final_result
 
         except Exception as e:

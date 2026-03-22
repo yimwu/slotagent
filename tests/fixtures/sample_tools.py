@@ -8,6 +8,8 @@ Provides mock tool definitions and executors.
 
 from typing import Any, Dict
 
+from slotagent.types import Tool
+
 
 # =============================================================================
 # Mock Tool Executors
@@ -38,24 +40,46 @@ def failing_executor(params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # =============================================================================
-# Mock Tool Definitions
+# Mock Tool Definitions (using Tool dataclass)
 # =============================================================================
 
-
-class MockTool:
-    """Simple mock tool for testing"""
-
-    def __init__(self, tool_id: str, name: str, executor=None):
-        self.tool_id = tool_id
-        self.name = name
-        self.executor = executor or mock_weather_executor
-
-    def execute(self, params: Dict[str, Any]) -> Any:
-        """Execute the tool"""
-        return self.executor(params)
-
-
 # Predefined tools
-WEATHER_TOOL = MockTool('weather_query', 'Weather Query', mock_weather_executor)
-PAYMENT_TOOL = MockTool('payment_refund', 'Payment Refund', mock_payment_executor)
-FAILING_TOOL = MockTool('failing_tool', 'Failing Tool', failing_executor)
+WEATHER_TOOL = Tool(
+    tool_id='weather_query',
+    name='Weather Query',
+    description='Query weather information for a location',
+    input_schema={
+        'type': 'object',
+        'properties': {
+            'location': {'type': 'string'}
+        },
+        'required': ['location']
+    },
+    execute_func=mock_weather_executor
+)
+
+PAYMENT_TOOL = Tool(
+    tool_id='payment_refund',
+    name='Payment Refund',
+    description='Process payment refund for an order',
+    input_schema={
+        'type': 'object',
+        'properties': {
+            'order_id': {'type': 'string'},
+            'amount': {'type': 'number'}
+        },
+        'required': ['order_id', 'amount']
+    },
+    execute_func=mock_payment_executor
+)
+
+FAILING_TOOL = Tool(
+    tool_id='failing_tool',
+    name='Failing Tool',
+    description='A tool that always fails for testing error handling',
+    input_schema={
+        'type': 'object',
+        'properties': {}
+    },
+    execute_func=failing_executor
+)
