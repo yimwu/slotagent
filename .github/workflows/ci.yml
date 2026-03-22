@@ -1,10 +1,7 @@
 name: Code Quality Checks
 
 on:
-  push:
-    branches: [ main, develop, feature/** ]
-  pull_request:
-    branches: [ main, develop ]
+  workflow_dispatch:  # 仅手动触发，禁用自动 CI
 
 jobs:
   quality:
