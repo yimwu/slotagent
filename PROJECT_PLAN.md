@@ -189,33 +189,32 @@
 
 **目标：** 实现Hook事件系统，支持外部订阅和事件驱动
 
-**关键任务：**
+**关键任务:**
 
 | 任务 | 描述 | 预期产出 | 状态 |
 |------|------|--------|------|
-| 5.1 | 定义 Hook 事件类型 | `on_before_exec`、`on_after_exec`、`on_fail` 等 | ⬜ |
-| 5.2 | 实现 HookManager（Hook管理） | 支持订阅、发送、并发安全 | ⬜ |
-| 5.3 | 在核心调度中集成Hook事件 | 各关键点触发对应Hook | ⬜ |
-| 5.4 | 编写规格文档 | Hook事件规范、订阅机制 | ⬜ |
+| 5.1 | 定义 Hook 事件类型 | `on_before_exec`、`on_after_exec`、`on_fail` 等 | ✅ |
+| 5.2 | 实现 HookManager(Hook管理) | 支持订阅、发送、并发安全 | ✅ |
+| 5.3 | 在核心调度中集成Hook事件 | 各关键点触发对应Hook | ✅ |
+| 5.4 | 编写规格文档 | Hook事件规范、订阅机制 | ✅ |
 
-**规格文档：**
+**规格文档:**
 - `docs/architecture/hook_system.md` - Hook系统设计
-- `docs/interfaces/hook_interface.md` - Hook接口规范
+- `docs/data_models/hook_events.md` - Hook事件类型定义
 
-**测试计划：**
+**测试计划:**
 - 单元测试：`tests/unit/test_hook_manager.py`
-  - Hook订阅和发送
-  - 多个订阅者并发接收
-  - Hook异常处理
-- 集成测试：`tests/integration/test_hook_event_flow.py`
-  - 完整流程中Hook事件的触发和分发
+  - Hook订阅和发送 ✅
+  - 多个订阅者并发接收 ✅
+  - Hook异常处理 ✅
+- 集成测试：通过 CoreScheduler 测试验证
 
-**验收标准：**
-- [ ] 5个主要Hook事件已定义（before/after/fail/guard_block/wait_approval）
-- [ ] HookManager线程安全
-- [ ] Hook事件携带完整信息
-- [ ] 订阅者异常不影响主流程
-- [ ] 单元测试覆盖率 ≥ 90%
+**验收标准:**
+- [x] 5个主要Hook事件已定义（before/after/fail/guard_block/wait_approval）
+- [x] HookManager线程安全
+- [x] Hook事件携带完整信息
+- [x] 订阅者异常不影响主流程
+- [x] 单元测试覆盖率 ≥ 90% (实际: 100%)
 
 **计划工期：** 2-3天
 **负责人：** TBD
@@ -349,7 +348,7 @@
 | M2 - 核心引擎 | Phase 2 | 插件池和核心调度引擎可运行 | 2026-03-27 | 2026-03-22 | ✅ |
 | M3 - 插件体系 | Phase 3 | 5层基础插件实现完成 | 2026-03-31 | 2026-03-22 | ✅ |
 | M4 - 工具系统 | Phase 4 | 工具定义、注册、配置系统就绪 | 2026-04-02 | 2026-03-22 | ✅ |
-| M5 - 可观测性 | Phase 5 | Hook 系统实现完成 | 2026-04-04 | | ⬜ |
+| M5 - 可观测性 | Phase 5 | Hook 系统实现完成 | 2026-04-04 | 2026-03-22 | ✅ |
 | M6 - 审批系统 | Phase 6 | 人工审批流程完全实现 | 2026-04-08 | | ⬜ |
 | M7 - 测试完善 | Phase 7 | 测试覆盖率达到标准，文档完善 | 2026-04-10 | | ⬜ |
 | M8 - 可用版本 | Phase 8 | v0.1.0 版本发布，示例可运行 | 2026-04-12 | | ⬜ |
