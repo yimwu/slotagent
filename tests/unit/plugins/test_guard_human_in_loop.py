@@ -132,3 +132,147 @@ class TestGuardHumanInLoopExecution:
         plugin = GuardHumanInLoop(approval_manager=manager)
 
         assert plugin.validate() is True
+
+
+class TestParamsSummarization:
+    """Test parameter summarization for approval context"""
+
+    def test_summarize_simple_params(self):
+        """Test summarizing simple parameter types"""
+        manager = ApprovalManager()
+        plugin = GuardHumanInLoop(approval_manager=manager)
+
+        context = PluginContext(
+            tool_id='test_tool',
+            tool_name='Test Tool',
+            params={
+                'string_param': 'value',
+                'int_param': 42,
+                'float_param': 3.14,
+                'bool_param': True
+            },
+            layer='guard',
+            execution_id=str(uuid.uuid4()),
+            timestamp=time.time()
+        )
+
+        result = plugin.execute(context)
+        summary = result.data['approval_context']['params_summary']
+
+        assert 'string_param=value' in summary
+        assert 'int_param=42' in summary
+        assert 'float_param=3.14' in summary
+        assert 'bool_param=True' in summary
+
+    def test_summarize_dict_params(self):
+        """Test summarizing dict parameters"""
+        manager = ApprovalManager()
+        plugin = GuardHumanInLoop(approval_manager=manager)
+
+        context = PluginContext(
+            tool_id='test_tool',
+            tool_name='Test Tool',
+            params={
+                'nested_dict': {'key1': 'value1', 'key2': 'value2'}
+            },
+            layer='guard',
+            execution_id=str(uuid.uuid4()),
+            timestamp=time.time()
+        )
+
+        result = plugin.execute(context)
+        summary = result.data['approval_context']['params_summary']
+
+        assert 'nested_dict={...}' in summary
+
+    def test_summarize_list_params(self):
+        """Test summarizing list parameters"""
+        manager = ApprovalManager()
+        plugin = GuardHumanInLoop(approval_manager=manager)
+
+        context = PluginContext(
+            tool_id='test_tool',
+            tool_name='Test Tool',
+            params={
+                'items': [1, 2, 3, 4, 5]
+            },
+            layer='guard',
+            execution_id=str(uuid.uuid4()),
+            timestamp=time.time()
+        )
+
+        result = plugin.execute(context)
+        summary = result.data['approval_context']['params_summary']
+
+        assert 'items=[5 items]' in summary
+
+    def test_summarize_empty_params(self):
+        """Test summarizing empty parameters"""
+        manager = ApprovalManager()
+        plugin = GuardHumanInLoop(approval_manager=manager)
+
+        context = PluginContext(
+            tool_id='test_tool',
+            tool_name='Test Tool',
+            params={},
+            layer='guard',
+            execution_id=str(uuid.uuid4()),
+            timestamp=time.time()
+        )
+
+        result = plugin.execute(context)
+        summary = result.data['approval_context']['params_summary']
+
+        assert summary == "No parameters"
+
+    def test_summarize_many_params(self):
+        """Test summarizing more than 5 parameters"""
+        manager = ApprovalManager()
+        plugin = GuardHumanInLoop(approval_manager=manager)
+
+        context = PluginContext(
+            tool_id='test_tool',
+            tool_name='Test Tool',
+            params={
+                'param1': 'value1',
+                'param2': 'value2',
+                'param3': 'value3',
+                'param4': 'value4',
+                'param5': 'value5',
+                'param6': 'value6',
+                'param7': 'value7'
+            },
+            layer='guard',
+            execution_id=str(uuid.uuid4()),
+            timestamp=time.time()
+        )
+
+        result = plugin.execute(context)
+        summary = result.data['approval_context']['params_summary']
+
+        # Should show "(+ 2 more)"
+        assert '(+ 2 more)' in summary
+
+    def test_summarize_custom_object_params(self):
+        """Test summarizing custom object parameters"""
+        manager = ApprovalManager()
+        plugin = GuardHumanInLoop(approval_manager=manager)
+
+        class CustomObj:
+            pass
+
+        context = PluginContext(
+            tool_id='test_tool',
+            tool_name='Test Tool',
+            params={
+                'obj': CustomObj()
+            },
+            layer='guard',
+            execution_id=str(uuid.uuid4()),
+            timestamp=time.time()
+        )
+
+        result = plugin.execute(context)
+        summary = result.data['approval_context']['params_summary']
+
+        assert 'obj=<CustomObj>' in summary

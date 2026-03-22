@@ -429,3 +429,41 @@ class TestErrorHandling:
 
         assert context.status == ExecutionStatus.FAILED
         assert context.error is not None
+
+
+class TestApprovalWorkflow:
+    """Test approval workflow integration with CoreScheduler"""
+
+    def test_pending_approval_sets_correct_state(self):
+        """Test that guard pending approval sets PENDING_APPROVAL state"""
+        from slotagent.core.core_scheduler import CoreScheduler
+        from slotagent.core.approval_manager import ApprovalManager
+        from slotagent.plugins.guard import GuardHumanInLoop
+        from slotagent.core.hook_manager import HookManager
+
+        manager = ApprovalManager()
+        hook_manager = HookManager()
+        scheduler = CoreScheduler(hook_manager=hook_manager)
+
+        # Register GuardHumanInLoop plugin
+        guard_plugin = GuardHumanInLoop(approval_manager=manager)
+        scheduler.plugin_pool.register_global_plugin(guard_plugin)
+
+        scheduler.register_tool(PAYMENT_TOOL)
+
+        # Track approval events
+        wait_approval_events = []
+        def on_wait_approval(event):
+            wait_approval_events.append(event)
+
+        hook_manager.subscribe('wait_approval', on_wait_approval)
+
+        context = scheduler.execute('payment_refund', {'amount': 100})
+
+        # Should be in PENDING_APPROVAL state
+        assert context.status == ExecutionStatus.PENDING_APPROVAL
+        assert context.approval_id is not None
+
+        # Should have emitted wait_approval event
+        assert len(wait_approval_events) == 1
+        assert wait_approval_events[0].approval_id == context.approval_id
