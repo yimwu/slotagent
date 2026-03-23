@@ -291,54 +291,88 @@ class CoreScheduler:
             )
         )
 
-        # 3. Execute tool
-        try:
-            final_result = tool.execute_func(context.params)
-            context.final_result = final_result
+        # 3. Execute tool with Healing retry support
+        healing_plugin = self.plugin_pool.get_plugin("healing", context.tool_id)
+        max_attempts = 1 + (getattr(healing_plugin, "max_retries", 1) if healing_plugin else 0)
 
-            # Store result for Reflect plugin
-            previous_results["result"] = final_result
+        tool_succeeded = False
+        for attempt in range(max_attempts):
+            try:
+                final_result = tool.execute_func(context.params)
+                context.final_result = final_result
 
-            # Emit after_exec event
-            self.hook_manager.emit(
-                AfterExecEvent(
-                    execution_id=context.execution_id,
-                    tool_id=context.tool_id,
-                    tool_name=context.tool_name,
-                    timestamp=time.time(),
-                    params=context.params,
-                    result=final_result,
-                    execution_time=time.time() - context.start_time,
+                # Store result for Reflect plugin
+                previous_results["result"] = final_result
+                tool_succeeded = True
+
+                # Emit after_exec event
+                self.hook_manager.emit(
+                    AfterExecEvent(
+                        execution_id=context.execution_id,
+                        tool_id=context.tool_id,
+                        tool_name=context.tool_name,
+                        timestamp=time.time(),
+                        params=context.params,
+                        result=final_result,
+                        execution_time=time.time() - context.start_time,
+                    )
                 )
-            )
+                break  # Success — exit retry loop
 
-        except Exception as e:
-            # Tool execution failed
-            context.status = ExecutionStatus.FAILED
-            context.error = f"Tool execution failed: {str(e)}"
-            # Emit fail event
-            self.hook_manager.emit(
-                FailEvent(
-                    execution_id=context.execution_id,
-                    tool_id=context.tool_id,
-                    tool_name=context.tool_name,
-                    timestamp=time.time(),
-                    params=context.params,
-                    error=str(e),
-                    error_type=type(e).__name__,
-                    failed_stage="execute",
+            except Exception as e:
+                tool_error = str(e)
+                previous_results["error"] = tool_error
+                previous_results["error_type"] = type(e).__name__
+
+                # Emit fail event for each attempt
+                self.hook_manager.emit(
+                    FailEvent(
+                        execution_id=context.execution_id,
+                        tool_id=context.tool_id,
+                        tool_name=context.tool_name,
+                        timestamp=time.time(),
+                        params=context.params,
+                        error=tool_error,
+                        error_type=type(e).__name__,
+                        failed_stage="execute",
+                    )
                 )
-            )
+
+                # 4. Healing layer — try to recover before next attempt
+                if healing_plugin and attempt < max_attempts - 1:
+                    healing_result = self._execute_plugin(
+                        healing_plugin, context, previous_results, tool
+                    )
+                    context.plugin_results["healing"] = healing_result
+                    previous_results["healing"] = healing_result.data
+
+                    if (
+                        healing_result.success
+                        and healing_result.data
+                        and healing_result.data.get("recovered")
+                    ):
+                        fixed_params = healing_result.data.get("fixed_params")
+                        if fixed_params:
+                            context.params = fixed_params
+                        continue  # Retry with fixed params
+
+                # Healing unavailable or failed — mark execution as failed
+                context.status = ExecutionStatus.FAILED
+                context.error = f"Tool execution failed: {tool_error}"
+                return context
+
+        if not tool_succeeded:
+            # All retries exhausted (should not normally reach here)
             return context
 
-        # 4. Reflect layer (Phase 3)
+        # 5. Reflect layer
         reflect_plugin = self.plugin_pool.get_plugin("reflect", context.tool_id)
         if reflect_plugin:
             result = self._execute_plugin(reflect_plugin, context, previous_results, tool)
             context.plugin_results["reflect"] = result
             previous_results["reflect"] = result.data
 
-        # 5. Observe layer (Phase 3)
+        # 6. Observe layer
         observe_plugin = self.plugin_pool.get_plugin("observe", context.tool_id)
         if observe_plugin:
             result = self._execute_plugin(observe_plugin, context, previous_results, tool)

@@ -19,6 +19,115 @@ from slotagent.plugins.schema import SchemaDefault
 from slotagent.types import ExecutionStatus, Tool
 
 
+class TestHealingIntegration:
+    """Integration tests for Healing workflow"""
+
+    def test_healing_fixes_parameter_and_retries(self):
+        """Test healing plugin fixes parameters and retries successfully"""
+
+        # Setup mock LLM with healing response
+        mock_llm = MockLLM(
+            responses={
+                "执行错误": json.dumps({
+                    "analysis": "参数location拼写错误，应该是Beijing而不是Beiing",
+                    "fixed_params": {"location": "Beijing"}
+                })
+            }
+        )
+
+        # Setup scheduler with healing plugin
+        scheduler = CoreScheduler(llm=mock_llm)
+        healing_plugin = HealingLLM(llm=mock_llm, max_retries=1)
+        scheduler.plugin_pool.register_global_plugin(healing_plugin)
+
+        # Create tool that fails on first call but succeeds on retry
+        call_count = {"n": 0}
+
+        def failing_weather_tool(params):
+            call_count["n"] += 1
+            location = params.get("location", "")
+
+            # First call fails with typo
+            if call_count["n"] == 1 and location == "Beiing":
+                raise RuntimeError("City not found: Beiing")
+
+            # Second call succeeds with corrected location
+            if call_count["n"] == 2 and location == "Beijing":
+                return {"temperature": 25, "city": "Beijing", "condition": "sunny"}
+
+            raise RuntimeError(f"Unexpected call: {params}")
+
+        tool = Tool(
+            tool_id="weather_query",
+            name="天气查询",
+            description="获取指定城市的天气信息",
+            input_schema={
+                "type": "object",
+                "properties": {"location": {"type": "string"}},
+                "required": ["location"]
+            },
+            execute_func=failing_weather_tool,
+        )
+
+        scheduler.register_tool(tool)
+
+        # Execute with bad parameter
+        context = scheduler.execute("weather_query", {"location": "Beiing"})
+
+        # Should succeed after healing
+        assert context.status == ExecutionStatus.COMPLETED
+        assert call_count["n"] == 2  # Original call + retry
+        assert len(mock_llm.call_history) >= 1  # LLM called for healing
+        assert "healing" in context.plugin_results
+
+        # Verify healing worked
+        healing_result = context.plugin_results["healing"]
+        assert healing_result.data.get("recovered") is True
+        assert healing_result.data.get("fixed_params") == {"location": "Beijing"}
+
+        # Final result should be success
+        assert context.final_result["temperature"] == 25
+        assert context.final_result["city"] == "Beijing"
+
+    def test_healing_fails_when_llm_cannot_fix(self):
+        """Test healing fails gracefully when LLM cannot fix parameters"""
+
+        # LLM responds that it cannot fix the error
+        mock_llm = MockLLM(
+            responses={
+                "error": json.dumps({
+                    "analysis": "无法修复此错误",
+                    "fixed_params": None
+                })
+            }
+        )
+
+        scheduler = CoreScheduler(llm=mock_llm)
+        healing_plugin = HealingLLM(llm=mock_llm, max_retries=1)
+        scheduler.plugin_pool.register_global_plugin(healing_plugin)
+
+        def always_failing_tool(params):
+            raise RuntimeError("Permanent failure")
+
+        tool = Tool(
+            tool_id="failing_tool",
+            name="Failing Tool",
+            description="A tool that always fails",
+            input_schema={"type": "object", "properties": {}},
+            execute_func=always_failing_tool,
+        )
+
+        scheduler.register_tool(tool)
+        context = scheduler.execute("failing_tool", {})
+
+        # Should fail after healing attempt
+        assert context.status == ExecutionStatus.FAILED
+        assert "healing" in context.plugin_results
+
+        healing_result = context.plugin_results["healing"]
+        assert healing_result.data.get("recovered") is False
+
+
 class TestHealingReflectIntegration:
     """Integration tests for Healing + Reflect workflow"""
 
