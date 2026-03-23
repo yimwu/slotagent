@@ -12,9 +12,9 @@ Contains official implementations of the 5 plugin layers:
 """
 
 from slotagent.plugins.guard import GuardDefault, GuardHumanInLoop
-from slotagent.plugins.healing import HealingRetry
+from slotagent.plugins.healing import HealingLLM, HealingRetry
 from slotagent.plugins.observe import LogPlugin
-from slotagent.plugins.reflect import ReflectSimple
+from slotagent.plugins.reflect import ReflectLLM, ReflectSimple
 from slotagent.plugins.schema import SchemaDefault, SchemaStrict
 
 __all__ = [
@@ -26,8 +26,10 @@ __all__ = [
     "GuardHumanInLoop",
     # Healing layer
     "HealingRetry",
+    "HealingLLM",
     # Reflect layer
     "ReflectSimple",
+    "ReflectLLM",
     # Observe layer
     "LogPlugin",
 ]
