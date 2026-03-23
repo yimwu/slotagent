@@ -67,6 +67,8 @@ class PluginContext:
         timestamp: 上下文创建时间戳 (Unix timestamp)
         previous_results: 前序插件的执行结果,key为插件层名称
         metadata: 扩展元数据,供插件自定义使用
+        tool_description: 工具目标描述,用于 LLM 插件理解工具用途
+        tool_schema: 工具参数schema,用于 LLM 插件理解参数结构
 
     Examples:
         >>> context = PluginContext(
@@ -75,7 +77,8 @@ class PluginContext:
         ...     params={"location": "Beijing"},
         ...     layer="schema",
         ...     execution_id=str(uuid.uuid4()),
-        ...     timestamp=time.time()
+        ...     timestamp=time.time(),
+        ...     tool_description="获取指定城市的天气信息"
         ... )
     """
 
@@ -87,6 +90,8 @@ class PluginContext:
     timestamp: float
     previous_results: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
+    tool_description: Optional[str] = None  # 新增: 工具目标描述
+    tool_schema: Optional[Dict[str, Any]] = None  # 新增: 工具参数schema
 
     def __post_init__(self):
         """验证字段约束"""
