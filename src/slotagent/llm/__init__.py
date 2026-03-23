@@ -8,10 +8,12 @@ LLM 抽象层
 
 from slotagent.llm.interface import LLMInterface, LLMMessage, LLMResponse
 from slotagent.llm.mock_llm import MockLLM
+from slotagent.llm.qwen_llm import QwenLLM
 
 __all__ = [
     "LLMInterface",
     "LLMMessage",
     "LLMResponse",
     "MockLLM",
+    "QwenLLM",
 ]
