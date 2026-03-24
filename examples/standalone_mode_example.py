@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Copyright (c) 2026 SlotAgent Contributors
 # Licensed under the MIT License - see LICENSE file for details.
 """
 Standalone Mode Example - Basic SlotAgent Usage
 
-This example demonstrates how to use SlotAgent as a standalone agent execution engine.
+Demonstrates how to use SlotAgent as a standalone agent execution engine.
 
 Features demonstrated:
 - Tool registration and execution
@@ -16,6 +17,13 @@ Features demonstrated:
 Run this example:
     python examples/standalone_mode_example.py
 """
+
+import sys
+# Force UTF-8 output on Windows
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 from slotagent.core import CoreScheduler, HookManager
 from slotagent.plugins import SchemaDefault, GuardDefault, LogPlugin
@@ -126,22 +134,21 @@ def setup_hooks(hook_manager):
     """Setup hook event listeners for monitoring"""
 
     def on_before_exec(event):
-        print(f"\n[HOOK] 🚀 Starting execution: {event.tool_name}")
+        print(f"\n[HOOK] START: {event.tool_name}")
         print(f"       Execution ID: {event.execution_id}")
         print(f"       Parameters: {event.params}")
 
     def on_after_exec(event):
-        print(f"\n[HOOK] ✅ Execution completed: {event.tool_name}")
+        print(f"\n[HOOK] DONE: {event.tool_name}")
         print(f"       Result: {event.result}")
         print(f"       Execution time: {event.execution_time:.4f}s")
 
     def on_fail(event):
-        print(f"\n[HOOK] ❌ Execution failed: {event.tool_name}")
+        print(f"\n[HOOK] FAIL: {event.tool_name}")
         print(f"       Error: {event.error}")
-        print(f"       Failed at: {event.failed_at}")
 
     def on_guard_block(event):
-        print(f"\n[HOOK] 🚫 Execution blocked: {event.tool_name}")
+        print(f"\n[HOOK] BLOCKED: {event.tool_name}")
         print(f"       Reason: {event.reason}")
 
     # Subscribe to all events
@@ -197,14 +204,14 @@ def example_2_with_schema_validation():
     })
 
     if context.status == ExecutionStatus.COMPLETED:
-        print(f"\n✅ Success: {context.final_result}")
+        print(f"\nOK Success: {context.final_result}")
 
     # Invalid execution (missing required field)
     print("\n\n--- Invalid Parameters (missing 'location') ---")
     context = scheduler.execute('weather_query', {'unit': 'celsius'})
 
     if context.status == ExecutionStatus.FAILED:
-        print(f"\n❌ Failed: {context.error}")
+        print(f"\nFAIL: {context.error}")
 
 
 def example_3_with_guard_control():
@@ -271,7 +278,7 @@ def example_4_full_plugin_stack():
         'unit': 'celsius'
     })
 
-    print(f"\n📊 Final Result:")
+    print(f"\nFinal Result:")
     print(f"   Status: {context.status}")
     print(f"   Result: {context.final_result}")
     print(f"   Plugin Results: {context.plugin_results}")
@@ -304,7 +311,7 @@ def example_5_error_handling():
     # Execute failing tool
     context = scheduler.execute('failing_tool', {})
 
-    print(f"\n📊 Execution Result:")
+    print(f"\nExecution Result:")
     print(f"   Status: {context.status}")
     print(f"   Error: {context.error}")
     print(f"   Execution Time: {context.execution_time:.4f}s")
@@ -317,12 +324,9 @@ def example_5_error_handling():
 def main():
     """Run all examples"""
     print("\n")
-    print("█" * 70)
-    print("█" + " " * 68 + "█")
-    print("█" + " " * 18 + "SlotAgent Standalone Mode" + " " * 25 + "█")
-    print("█" + " " * 22 + "Usage Examples" + " " * 32 + "█")
-    print("█" + " " * 68 + "█")
-    print("█" * 70)
+    print("=" * 70)
+    print("             SlotAgent Standalone Mode - Usage Examples")
+    print("=" * 70)
 
     try:
         example_1_basic_execution()
@@ -332,11 +336,11 @@ def main():
         example_5_error_handling()
 
         print("\n" + "=" * 70)
-        print("✅ All examples completed successfully!")
+        print("All examples completed successfully!")
         print("=" * 70 + "\n")
 
     except Exception as e:
-        print(f"\n❌ Error running examples: {e}")
+        print(f"\nError running examples: {e}")
         import traceback
         traceback.print_exc()
 

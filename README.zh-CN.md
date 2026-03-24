@@ -32,10 +32,11 @@ SlotAgent 是一个**生产就绪的工具执行引擎**，专为可靠、安全
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  1. 使用模式                                             │
-│     独立模式  │  嵌入模式（LangGraph）                   │
+│     独立模式（Independent）│  嵌入模式（LangGraph）       │
 ├─────────────────────────────────────────────────────────┤
 │  2. 接口层                                               │
-│     • 执行 API（run/execute/batch_run）                 │
+│     • run(query) - 自然语言工具交互                       │
+│     • execute(tool, params) - 直接工具执行               │
 │     • Hook API（事件订阅）                               │
 │     • 插件管理 API                                       │
 ├─────────────────────────────────────────────────────────┤
@@ -43,7 +44,7 @@ SlotAgent 是一个**生产就绪的工具执行引擎**，专为可靠、安全
 │     插件链执行 → 事件分发 → 状态管理                     │
 ├─────────────────────────────────────────────────────────┤
 │  4. 插件池（5层）                                        │
-│     Schema → Guard → Healing → Reflect → Observe        │
+│     Schema → Guard → Execute → Healing → Reflect → Observe│
 ├─────────────────────────────────────────────────────────┤
 │  5. 工具中心                                             │
 │     工具注册表，支持工具级插件配置                        │
@@ -61,14 +62,23 @@ SlotAgent 是一个**生产就绪的工具执行引擎**，专为可靠、安全
 |-------|---------------|---------------------|
 | **Schema** | 参数验证 | `SchemaDefault`、`SchemaStrict` |
 | **Guard** | 访问控制与审批 | `GuardDefault`、`GuardHumanInLoop` |
-| **Healing** | 失败自动恢复 | `HealingRetry`（占位符） |
-| **Reflect** | 任务完成度验证 | `ReflectSimple`（占位符） |
+| **Healing** | 失败自动恢复 | `HealingRetry`、`HealingLLM`（LLM驱动） |
+| **Reflect** | 任务完成度验证 | `ReflectSimple`、`ReflectLLM`（LLM驱动） |
 | **Observe** | 生命周期观测 | `LogPlugin` |
 
-**执行流程：**
+### ⚡ 执行流程
+
 ```
-Schema 验证 → Guard 检查 → [工具执行] → Healing → Reflect → Observe
+Schema → Guard → Execute → [Healing] → Reflect → Observe
+                      ↑
+                      └── 失败时触发 Healing（修复参数后重试）
 ```
+
+**说明：**
+- Execute 是核心工具执行层，每个工具都会执行
+- Healing 是**可选的**，只在 Execute 失败时触发
+- 成功流程：Schema → Guard → Execute → Reflect → Observe
+- 失败重试：Schema → Guard → Execute (失败) → Healing → Execute (重试) → Reflect → Observe
 
 ### 🎯 工具级插件配置
 
@@ -164,12 +174,12 @@ approval_manager.reject(context.approval_id, approver='...', reason='...')
 
 ```bash
 # 直接从 GitHub 安装最新 release
-pip install git+https://github.com/yimwu/slotagent.git@v0.1.0-alpha
+pip install git+https://github.com/yimwu/slotagent.git@v0.2.0-alpha
 
 # 或下载源码安装
-wget https://github.com/yimwu/slotagent/archive/refs/tags/v0.1.0-alpha.tar.gz
-tar -xzf v0.1.0-alpha.tar.gz
-cd slotagent-0.1.0-alpha
+wget https://github.com/yimwu/slotagent/archive/refs/tags/v0.2.0-alpha.tar.gz
+tar -xzf v0.2.0-alpha.tar.gz
+cd slotagent-0.2.0-alpha
 pip install .
 ```
 
@@ -362,17 +372,25 @@ slotagent/
 
 ## 📋 路线图
 
-### v0.1.0-alpha（当前）✅
+### v0.1.0-alpha（已发布）✅
 
 - [x] 核心调度器与插件链执行
 - [x] 5层插件系统（Schema、Guard、Healing、Reflect、Observe）
 - [x] 工具注册表，支持工具级插件配置
 - [x] Hook 事件系统
 - [x] 人工审批工作流
-- [x] 全面测试套件（96.59% 覆盖率）
+- [x] 全面测试套件
 - [x] 完整文档和示例
 
-### v0.2.0（计划中）
+### v0.2.0-alpha（当前）✅
+
+- [x] SlotAgent 门面（独立模式 + 嵌入模式）
+- [x] LLM 抽象层（QwenLLM、MockLLM）
+- [x] LLM 驱动插件（HealingLLM、ReflectLLM）
+- [x] 自然语言工具交互（SlotAgent.run）
+- [x] 真实 LLM 综合示例
+
+### v0.3.0（计划中）
 
 - [ ] 异步执行支持（`async/await`）
 - [ ] 性能基准测试和优化
@@ -405,9 +423,9 @@ slotagent/
 
 **当前指标：**
 - 代码行数：~5,000+
-- 测试覆盖率：96.59%
-- 测试：179/179 通过
-- 文档：3 份主要文档 + 15+ 规格文档
+- 测试覆盖率：95.38%
+- 测试：243/243 通过
+- 文档：完整文档和示例
 
 ---
 

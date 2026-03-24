@@ -1,7 +1,7 @@
 # SlotAgent 开发计划（Project Plan）
 
 **项目名称：** SlotAgent - 基于插件插槽的松散式LLM Agent执行引擎
-**当前版本：** 0.1.0-alpha
+**当前版本：** 0.2.0-alpha
 **计划开始日期：** 2026-03-22
 **计划完成日期：** TBD
 
