@@ -5,8 +5,8 @@
 [![Release](https://img.shields.io/github/v/release/yimwu/slotagent?include_prereleases)](https://github.com/yimwu/slotagent/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Test Coverage](https://img.shields.io/badge/coverage-96.66%25-brightgreen.svg)]()
-[![Tests](https://img.shields.io/badge/tests-179%20passed-brightgreen.svg)]()
+[![Test Coverage](https://img.shields.io/badge/coverage-95.38%25-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-243%20passed-brightgreen.svg)]()
 [![Development Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
 
 **SlotAgent** is an industrial-grade, self-developed LLM Agent execution engine featuring a plugin-slot architecture that emphasizes loose coupling and flexible extension.
@@ -61,8 +61,8 @@ Plugins execute in a fixed order to ensure predictability and security:
 |-------|---------------|------------------|
 | **Schema** | Parameter validation | `SchemaDefault`, `SchemaStrict` |
 | **Guard** | Access control & approval | `GuardDefault`, `GuardHumanInLoop` |
-| **Healing** | Auto-recovery on failure | `HealingRetry` (placeholder) |
-| **Reflect** | Task completion verification | `ReflectSimple` (placeholder) |
+| **Healing** | Auto-recovery on failure | `HealingRetry`, `HealingLLM` (LLM-driven) |
+| **Reflect** | Task completion verification | `ReflectSimple`, `ReflectLLM` (LLM-driven) |
 | **Observe** | Lifecycle observation | `LogPlugin` |
 
 **Execution Flow:**
@@ -194,11 +194,11 @@ pip install -r requirements-dev.txt
 ### Hello World Example
 
 ```python
-from slotagent.core import CoreScheduler
+from slotagent import SlotAgent
 from slotagent.types import Tool
 
-# 1. Create scheduler
-scheduler = CoreScheduler()
+# 1. Create agent
+agent = SlotAgent()
 
 # 2. Define a tool
 def add_numbers(params):
@@ -220,8 +220,8 @@ calculator = Tool(
 )
 
 # 3. Register and execute
-scheduler.register_tool(calculator)
-context = scheduler.execute('add', {'a': 10, 'b': 32})
+agent.register_tool(calculator)
+context = agent.execute('add', {'a': 10, 'b': 32})
 
 print(f"Result: {context.final_result}")  # {'result': 42}
 ```
@@ -229,20 +229,43 @@ print(f"Result: {context.final_result}")  # {'result': 42}
 ### With Plugin Chain
 
 ```python
+from slotagent import SlotAgent
 from slotagent.plugins import SchemaDefault, GuardDefault, LogPlugin
 
+agent = SlotAgent()
+
 # Register plugins
-scheduler.plugin_pool.register_global_plugin(
-    SchemaDefault(schema=calculator.input_schema)
-)
-scheduler.plugin_pool.register_global_plugin(
-    GuardDefault(blacklist=['dangerous_tool'])
-)
-scheduler.plugin_pool.register_global_plugin(LogPlugin())
+agent.register_plugin(SchemaDefault())
+agent.register_plugin(GuardDefault(blacklist=['dangerous_tool']))
+agent.register_plugin(LogPlugin())
 
 # Execute with full plugin chain
-context = scheduler.execute('add', {'a': 10, 'b': 32})
-# Output: Plugin chain executes → Schema validates → Guard checks → Tool runs → Log records
+context = agent.execute('add', {'a': 10, 'b': 32})
+# Output: Plugin chain executes → Schema validates → Guard checks → Tool runs → Observe logs
+```
+
+### Independent Mode (Natural Language)
+
+```python
+from slotagent import SlotAgent
+from slotagent.llm import QwenLLM  # or any LLM implementing LLMInterface
+from slotagent.plugins import HealingLLM, ReflectLLM
+
+# Use a real LLM for tool selection and LLM-driven plugins
+llm = QwenLLM(api_key="your-api-key", model="qwen3.5-plus")
+
+agent = SlotAgent(llm=llm)
+
+# Register LLM-powered plugins
+agent.register_plugin(HealingLLM(llm=llm))  # Auto-recovery on failure
+agent.register_plugin(ReflectLLM(llm=llm))   # Task completion verification
+
+# Register tools...
+agent.register_tool(weather_tool)
+
+# Natural language query - LLM picks tool and extracts params
+context = agent.run("What's the weather in Beijing?")
+print(f"Result: {context.final_result}")
 ```
 
 ---
@@ -267,7 +290,9 @@ context = scheduler.execute('add', {'a': 10, 'b': 32})
 
 ### Examples
 
-- **[Standalone Mode](examples/standalone_mode_example.py)** - Basic usage examples
+- **[Independent Mode](examples/independent_mode_example.py)** - Natural language tool interaction with real LLM (full 6-layer plugin chain demo)
+- **[LLM Plugins](examples/llm_plugins_example.py)** - HealingLLM and ReflectLLM with real Qwen LLM
+- **[Standalone Mode](examples/standalone_mode_example.py)** - Basic usage with CoreScheduler
 - **[Custom Plugins](examples/custom_plugin_example.py)** - Custom plugin development
 - **[Approval Workflow](examples/approval_workflow_example.py)** - Human-in-the-loop patterns
 
@@ -289,7 +314,7 @@ pytest tests/unit/test_core_scheduler.py
 pytest tests/integration/
 ```
 
-**Test Coverage:** 96.59% (179/179 tests passing)
+**Test Coverage:** 95.38% (243/243 tests passing)
 
 ---
 
@@ -328,8 +353,13 @@ slotagent/
 │   │   ├── healing.py
 │   │   ├── reflect.py
 │   │   └── observe.py
+│   ├── llm/                # LLM abstraction layer
+│   │   ├── interface.py
+│   │   ├── qwen_llm.py
+│   │   └── mock_llm.py
 │   ├── interfaces.py       # Plugin interfaces
-│   └── types.py            # Data types
+│   ├── types.py            # Data types
+│   └── agent.py            # SlotAgent facade (independent + embedded mode)
 ├── tests/                  # Test suite
 │   ├── unit/               # Unit tests
 │   └── integration/        # Integration tests
@@ -362,17 +392,25 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 ## 📋 Roadmap
 
-### v0.1.0-alpha (Current) ✅
+### v0.1.0-alpha (Previous) ✅
 
 - [x] Core scheduler with plugin chain execution
 - [x] 5-layer plugin system (Schema, Guard, Healing, Reflect, Observe)
 - [x] Tool registry with per-tool plugin configuration
 - [x] Hook-based event system
 - [x] Human-in-the-loop approval workflow
-- [x] Comprehensive test suite (96.59% coverage)
+- [x] Comprehensive test suite
 - [x] Complete documentation and examples
 
-### v0.2.0 (Planned)
+### v0.2.0-alpha (Current) ✅
+
+- [x] SlotAgent facade (independent + embedded mode)
+- [x] LLM abstraction layer with QwenLLM and MockLLM
+- [x] LLM-driven plugins (HealingLLM, ReflectLLM)
+- [x] Natural language tool interaction (SlotAgent.run)
+- [x] Comprehensive examples with real LLM
+
+### v0.3.0 (Planned)
 
 - [ ] Async execution support (`async/await`)
 - [ ] Performance benchmarking and optimization
@@ -405,9 +443,9 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 **Current Metrics:**
 - Lines of Code: ~5,000+
-- Test Coverage: 96.59%
-- Tests: 179/179 passing
-- Documentation: 3 major docs + 15+ specs
+- Test Coverage: 95.38%
+- Tests: 243/243 passing
+- Documentation: Complete docs + examples
 
 ---
 

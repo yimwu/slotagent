@@ -129,7 +129,12 @@ class SchemaDefault(PluginInterface):
         Returns:
             PluginResult with validation status
         """
-        is_valid, error_msg = _validate_simple_schema(context.params, self.schema)
+        # Use tool's input_schema if no explicit schema was set
+        schema = self.schema
+        if not schema and context.tool_schema:
+            schema = context.tool_schema
+
+        is_valid, error_msg = _validate_simple_schema(context.params, schema)
 
         if not is_valid:
             return PluginResult(

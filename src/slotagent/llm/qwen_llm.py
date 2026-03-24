@@ -37,6 +37,7 @@ class QwenLLM(LLMInterface):
         api_key: Optional[str] = None,
         base_url: str = "https://coding.dashscope.aliyuncs.com/v1",
         model: str = "qwen3-coder-next",
+        timeout: int = 60,
     ):
         """
         初始化通义千问 LLM
@@ -45,6 +46,7 @@ class QwenLLM(LLMInterface):
             api_key: API密钥,默认从环境变量 DASHSCOPE_PLAN_API_KEY 读取
             base_url: API基础URL
             model: 模型名称
+            timeout: 请求超时时间(秒),默认60秒
 
         Raises:
             ValueError: 如果未提供 API key 且环境变量未设置
@@ -57,6 +59,7 @@ class QwenLLM(LLMInterface):
 
         self.base_url = base_url.rstrip("/")
         self.model = model
+        self.timeout = timeout
 
     def complete(
         self,
@@ -102,7 +105,7 @@ class QwenLLM(LLMInterface):
             f"{self.base_url}/chat/completions",
             json=payload,
             headers=headers,
-            timeout=30,
+            timeout=self.timeout,
         )
 
         response.raise_for_status()
