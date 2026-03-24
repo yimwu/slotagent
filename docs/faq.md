@@ -1,6 +1,6 @@
 # SlotAgent FAQ (常见问题)
 
-**版本：** 0.1.0-alpha
+**版本：** 0.2.0-alpha
 **最后更新��** 2026-03-22
 
 本文档回答 SlotAgent 使用过程中的常见问题。
@@ -71,7 +71,7 @@ graph.add_node('tool_execution', tool_node)
 
 ### Q3: SlotAgent 是否支持异步执行？
 
-**A:** 当前版本 (0.1.0-alpha) **暂不支持异步**，所有执行都是同步的。
+**A:** 当前版本 (0.2.0-alpha) **暂不支持异步**，所有执行都是同步的。
 
 **路线图：**
 - Phase 9（计划中）：添加异步支持（`async def execute()`, `await tool.execute_func()`）

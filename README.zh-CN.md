@@ -174,12 +174,12 @@ approval_manager.reject(context.approval_id, approver='...', reason='...')
 
 ```bash
 # 直接从 GitHub 安装最新 release
-pip install git+https://github.com/yimwu/slotagent.git@v0.1.0-alpha
+pip install git+https://github.com/yimwu/slotagent.git@v0.2.0-alpha
 
 # 或下载源码安装
-wget https://github.com/yimwu/slotagent/archive/refs/tags/v0.1.0-alpha.tar.gz
-tar -xzf v0.1.0-alpha.tar.gz
-cd slotagent-0.1.0-alpha
+wget https://github.com/yimwu/slotagent/archive/refs/tags/v0.2.0-alpha.tar.gz
+tar -xzf v0.2.0-alpha.tar.gz
+cd slotagent-0.2.0-alpha
 pip install .
 ```
 

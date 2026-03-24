@@ -1,6 +1,6 @@
 # SlotAgent API Reference
 
-**Version:** 0.1.0-alpha
+**Version:** 0.2.0-alpha
 **Last Updated:** 2026-03-22
 
 本文档提供 SlotAgent 所有公共 API 的详细说明。
