@@ -32,10 +32,11 @@ SlotAgent 是一个**生产就绪的工具执行引擎**，专为可靠、安全
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  1. 使用模式                                             │
-│     独立模式  │  嵌入模式（LangGraph）                   │
+│     独立模式（Independent）│  嵌入模式（LangGraph）       │
 ├─────────────────────────────────────────────────────────┤
 │  2. 接口层                                               │
-│     • 执行 API（run/execute/batch_run）                 │
+│     • run(query) - 自然语言工具交互                       │
+│     • execute(tool, params) - 直接工具执行               │
 │     • Hook API（事件订阅）                               │
 │     • 插件管理 API                                       │
 ├─────────────────────────────────────────────────────────┤
@@ -43,7 +44,7 @@ SlotAgent 是一个**生产就绪的工具执行引擎**，专为可靠、安全
 │     插件链执行 → 事件分发 → 状态管理                     │
 ├─────────────────────────────────────────────────────────┤
 │  4. 插件池（5层）                                        │
-│     Schema → Guard → Healing → Reflect → Observe        │
+│     Schema → Guard → Execute → Healing → Reflect → Observe│
 ├─────────────────────────────────────────────────────────┤
 │  5. 工具中心                                             │
 │     工具注册表，支持工具级插件配置                        │
@@ -61,14 +62,23 @@ SlotAgent 是一个**生产就绪的工具执行引擎**，专为可靠、安全
 |-------|---------------|---------------------|
 | **Schema** | 参数验证 | `SchemaDefault`、`SchemaStrict` |
 | **Guard** | 访问控制与审批 | `GuardDefault`、`GuardHumanInLoop` |
-| **Healing** | 失败自动恢复 | `HealingRetry`（占位符） |
-| **Reflect** | 任务完成度验证 | `ReflectSimple`（占位符） |
+| **Healing** | 失败自动恢复 | `HealingRetry`、`HealingLLM`（LLM驱动） |
+| **Reflect** | 任务完成度验证 | `ReflectSimple`、`ReflectLLM`（LLM驱动） |
 | **Observe** | 生命周期观测 | `LogPlugin` |
 
-**执行流程：**
+### ⚡ 执行流程
+
 ```
-Schema 验证 → Guard 检查 → [工具执行] → Healing → Reflect → Observe
+Schema → Guard → Execute → [Healing] → Reflect → Observe
+                      ↑
+                      └── 失败时触发 Healing（修复参数后重试）
 ```
+
+**说明：**
+- Execute 是核心工具执行层，每个工具都会执行
+- Healing 是**可选的**，只在 Execute 失败时触发
+- 成功流程：Schema → Guard → Execute → Reflect → Observe
+- 失败重试：Schema → Guard → Execute (失败) → Healing → Execute (重试) → Reflect → Observe
 
 ### 🎯 工具级插件配置
 
