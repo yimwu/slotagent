@@ -32,10 +32,11 @@ SlotAgent is a **production-ready tool execution engine** designed for reliable,
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  1. Usage Modes                                          │
-│     Standalone Mode  │  Embedded Mode (LangGraph)       │
+│     Independent Mode  │  Embedded Mode (LangGraph)       │
 ├─────────────────────────────────────────────────────────┤
 │  2. Interface Layer                                      │
-│     • Execution API (run/execute/batch_run)             │
+│     • run(query) - Natural language tool interaction     │
+│     • execute(tool, params) - Direct tool execution      │
 │     • Hook API (event subscription)                      │
 │     • Plugin Management API                              │
 ├─────────────────────────────────────────────────────────┤
@@ -43,7 +44,7 @@ SlotAgent is a **production-ready tool execution engine** designed for reliable,
 │     Plugin chain execution → Event dispatch → State mgmt │
 ├─────────────────────────────────────────────────────────┤
 │  4. Plugin Pool (5 Layers)                               │
-│     Schema → Guard → Healing → Reflect → Observe        │
+│     Schema → Guard → Execute → Healing → Reflect → Observe│
 ├─────────────────────────────────────────────────────────┤
 │  5. Tool Center                                          │
 │     Tool registry with per-tool plugin configuration     │
@@ -65,10 +66,19 @@ Plugins execute in a fixed order to ensure predictability and security:
 | **Reflect** | Task completion verification | `ReflectSimple`, `ReflectLLM` (LLM-driven) |
 | **Observe** | Lifecycle observation | `LogPlugin` |
 
-**Execution Flow:**
+### ⚡ Execution Flow
+
 ```
-Schema Validation → Guard Check → [Tool Execution] → Healing → Reflect → Observe
+Schema → Guard → Execute → [Healing] → Reflect → Observe
+                      ↑
+                      └── 失败时触发 Healing（修复参数后重试）
 ```
+
+**说明：**
+- Execute 是核心工具执行层，每个工具都会执行
+- Healing 是**可选的**，只在 Execute 失败时触发
+- 成功流程：Schema → Guard → Execute → Reflect → Observe
+- 失败重试：Schema → Guard → Execute (失败) → Healing → Execute (重试) → Reflect → Observe
 
 ### 🎯 Tool-Level Plugin Configuration
 
