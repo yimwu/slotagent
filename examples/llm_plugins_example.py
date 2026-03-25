@@ -122,78 +122,63 @@ def main():
         print(f"  Reason: {reflect_result.data.get('reason')}")
 
     # =================================================================
-    # Test 2: Tool failure with Healing
+    # Test 2: Tool failure with Healing (enum key self-repair)
     # =================================================================
-    # 【工具行为】
-    #   unreliable_weather 只在"第一次调用 且 location 不是 Beijing"时失败
-    #   第二次调用会成功（无论 location 是什么）
+    # The tool only accepts lowercase keys ("beijing", "tianjin", "shanghai").
+    # LLM extracts "Beijing" (capitalized) → KeyError with available key list.
+    # HealingLLM reads the error, picks "beijing" from the list, retries.
     #
-    # 【执行流程】
-    #   Step 1. Schema 层    → 验证 {"location": "Beiing"} 通过
-    #   Step 2. Guard 层     → 通过
-    #   Step 3. Execute 层   → 调用工具，抛出 ValueError("Invalid location: Beiing")
-    #                         call_count = 1，第一次失败
-    #   Step 4. Healing 层   → 【触发！】分析错误原因，修正参数
-    #                         - 分析: "Beiing 是 Beijing 的拼写错误"
-    #                         - 修复: {"location": "Beijing"}
-    #   Step 5. Execute 层   → 重试，call_count = 2
-    #                         - location = "Beijing"，这次成功
-    #   Step 6. Reflect 层   → 分析重试后的结果
-    #   Step 7. Observe 层   → 记录日志
-    #
-    # 【plugin_results 包含】: schema, guard, execute, healing, execute(retry), reflect, observe
-    # 【注意】: 有 "healing" 键，因为工具第一次执行失败了
+    # Flow: Execute (KeyError) → Healing (fix "Beijing"→"beijing") → Execute (success)
     # =================================================================
     print("\n" + "=" * 60)
     print("Test 2: Tool failure (should trigger Healing retry)")
     print("=" * 60)
 
-    # 计数器：记录工具被调用了多少次
-    call_count = {"count": 0}
+    # Tool with enumerated valid keys - LLM can self-heal using the error message
+    VALID_LOCATIONS = ["beijing", "tianjin", "shanghai"]
 
-    def unreliable_weather(params):
-        call_count["count"] += 1
+    def strict_weather(params):
         location = params.get("location", "")
-        # 第一次调用且非 "Beijing" 时抛出错误
-        if call_count["count"] == 1 and location != "Beijing":
-            raise ValueError(f"Invalid location: {location}")
+        if location not in VALID_LOCATIONS:
+            raise KeyError(
+                f"Location '{location}' not found. "
+                f"Available locations: {VALID_LOCATIONS}"
+            )
         return {
-            "location": params.get("location", "Unknown"),
+            "location": location,
             "temperature": 22,
             "condition": "cloudy",
             "humidity": 55,
         }
 
-    unreliable_tool = Tool(
-        tool_id="unreliable_weather",
-        name="Unreliable Weather",
-        description="Weather query that may fail initially but recovers",
+    strict_tool = Tool(
+        tool_id="strict_weather",
+        name="Strict Weather",
+        description="Weather query with strict location validation (case-sensitive keys)",
         input_schema={
             "type": "object",
             "properties": {"location": {"type": "string"}},
             "required": ["location"],
         },
-        execute_func=unreliable_weather,
+        execute_func=strict_weather,
     )
 
-    scheduler.register_tool(unreliable_tool)
+    scheduler.register_tool(strict_tool)
 
-    # 传入拼写错误的 "Beiing"（不是 "Beijing"），触发第一次失败
-    # LLM 会分析错误原因，修正参数后重试
-    print(f"Calling with bad location 'Beiing' (misspelled)...")
-    context = scheduler.execute("unreliable_weather", {"location": "Beiing"})
+    # LLM extracts "Beijing" (capitalized), but valid key is "beijing" (lowercase).
+    # The error message includes the valid key list, so HealingLLM can self-repair.
+    print(f"Calling with 'Beijing' (wrong case, valid key is 'beijing')...")
+    context = scheduler.execute("strict_weather", {"location": "Beijing"})
 
     print(f"Status: {context.status}")
-    print(f"Call count: {call_count['count']}")  # 期望: 2（失败1次 + 重试1次）
     print(f"Final result: {context.final_result}")
 
-    # 检查 Healing 是否被触发（工具失败时会有这个键）
     if "healing" in context.plugin_results:
         healing_result = context.plugin_results["healing"]
         print("\nHealing Analysis:")
-        print(f"  Recovered: {healing_result.data.get('recovered')}")  # 期望: True
-        print(f"  Analysis: {healing_result.data.get('analysis')}")   # 期望: "Beiing 是拼写错误"
-        print(f"  Fixed params: {healing_result.data.get('fixed_params')}")  # 期望: {"location": "Beijing"}
+        print(f"  Recovered: {healing_result.data.get('recovered')}")
+        print(f"  Analysis: {healing_result.data.get('analysis')}")
+        print(f"  Fixed params: {healing_result.data.get('fixed_params')}")
 
     print("\n" + "=" * 60)
     print("All tests completed!")

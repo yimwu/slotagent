@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "slotagent"
-version = "0.2.0-alpha"
+version = "0.3.0-alpha"
 description = "Industrial-grade, self-developed LLM agent execution engine with plugin slot architecture"
 readme = "README.md"
 license = {text = "MIT"}

@@ -5,8 +5,8 @@
 [![Release](https://img.shields.io/github/v/release/yimwu/slotagent?include_prereleases)](https://github.com/yimwu/slotagent/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Test Coverage](https://img.shields.io/badge/coverage-96.66%25-brightgreen.svg)]()
-[![Tests](https://img.shields.io/badge/tests-179%20passed-brightgreen.svg)]()
+[![Test Coverage](https://img.shields.io/badge/coverage-94.79%25-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-243%20passed-brightgreen.svg)]()
 [![Development Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
 
 **SlotAgent** 是一个工业级自研 LLM Agent 执行引擎，采用插件插槽架构，强调松耦合和灵活扩展。
@@ -174,12 +174,12 @@ approval_manager.reject(context.approval_id, approver='...', reason='...')
 
 ```bash
 # 直接从 GitHub 安装最新 release
-pip install git+https://github.com/yimwu/slotagent.git@v0.2.0-alpha
+pip install git+https://github.com/yimwu/slotagent.git@v0.3.0-alpha
 
 # 或下载源码安装
-wget https://github.com/yimwu/slotagent/archive/refs/tags/v0.2.0-alpha.tar.gz
-tar -xzf v0.2.0-alpha.tar.gz
-cd slotagent-0.2.0-alpha
+wget https://github.com/yimwu/slotagent/archive/refs/tags/v0.3.0-alpha.tar.gz
+tar -xzf v0.3.0-alpha.tar.gz
+cd slotagent-0.3.0-alpha
 pip install .
 ```
 
@@ -299,7 +299,7 @@ pytest tests/unit/test_core_scheduler.py
 pytest tests/integration/
 ```
 
-**测试覆盖率：** 96.59%（179/179 个测试通过）
+**测试覆盖率：** 94.79%（243/243 个测试通过）
 
 ---
 
@@ -339,7 +339,8 @@ slotagent/
 │   │   ├── reflect.py
 │   │   └── observe.py
 │   ├── interfaces.py       # 插件接口
-│   └── types.py            # 数据类型
+│   ├── types.py            # 数据类型
+│   └── agent.py            # SlotAgent 门面（独立模式 + 嵌入模式）
 ├── tests/                  # 测试套件
 │   ├── unit/               # 单元测试
 │   └── integration/        # 集成测试
@@ -382,7 +383,7 @@ slotagent/
 - [x] 全面测试套件
 - [x] 完整文档和示例
 
-### v0.2.0-alpha（当前）✅
+### v0.2.0-alpha（已发布）✅
 
 - [x] SlotAgent 门面（独立模式 + 嵌入模式）
 - [x] LLM 抽象层（QwenLLM、MockLLM）
@@ -390,21 +391,21 @@ slotagent/
 - [x] 自然语言工具交互（SlotAgent.run）
 - [x] 真实 LLM 综合示例
 
-### v0.3.0（计划中）
+### v0.3.0-alpha（当前）✅
+
+- [x] HealingLLM 枚举 key 自主修复演示
+- [x] 改进示例，展示 HealingLLM 自愈能力
+
+### v0.4.0（计划中）
 
 - [ ] 异步执行支持（`async/await`）
 - [ ] 性能基准测试和优化
 - [ ] LangGraph 集成示例
 - [ ] 分布式审批管理器（基于 Redis）
 - [ ] 更多内置插件
-
-### v0.3.0（未来）
-
 - [ ] 数据库持久化层
 - [ ] 高级恢复策略
 - [ ] 监控和告警集成
-- [ ] 审批管理 Web UI
-- [ ] 多租户支持
 
 ---
 
