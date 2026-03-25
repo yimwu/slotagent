@@ -71,14 +71,14 @@ Plugins execute in a fixed order to ensure predictability and security:
 ```
 Schema → Guard → Execute → [Healing] → Reflect → Observe
                       ↑
-                      └── 失败时触发 Healing（修复参数后重试）
+                      └── Healing triggered on Execute failure (fixes params and retries)
 ```
 
-**说明：**
-- Execute 是核心工具执行层，每个工具都会执行
-- Healing 是**可选的**，只在 Execute 失败时触发
-- 成功流程：Schema → Guard → Execute → Reflect → Observe
-- 失败重试：Schema → Guard → Execute (失败) → Healing → Execute (重试) → Reflect → Observe
+**Notes:**
+- Execute is the core tool execution layer, runs for every tool
+- Healing is **optional**, only triggered when Execute fails
+- Success path: Schema → Guard → Execute → Reflect → Observe
+- Failure retry: Schema → Guard → Execute (fail) → Healing → Execute (retry) → Reflect → Observe
 
 ### 🎯 Tool-Level Plugin Configuration
 
@@ -174,12 +174,12 @@ approval_manager.reject(context.approval_id, approver='..', reason='...')
 
 ```bash
 # Install latest release directly from GitHub
-pip install git+https://github.com/yimwu/slotagent.git@v0.2.0-alpha
+pip install git+https://github.com/yimwu/slotagent.git@v0.3.0-alpha
 
 # Or download and install from source
-wget https://github.com/yimwu/slotagent/archive/refs/tags/v0.2.0-alpha.tar.gz
-tar -xzf v0.2.0-alpha.tar.gz
-cd slotagent-0.2.0-alpha
+wget https://github.com/yimwu/slotagent/archive/refs/tags/v0.3.0-alpha.tar.gz
+tar -xzf v0.3.0-alpha.tar.gz
+cd slotagent-0.3.0-alpha
 pip install .
 ```
 
@@ -262,7 +262,7 @@ from slotagent.llm import QwenLLM  # or any LLM implementing LLMInterface
 from slotagent.plugins import HealingLLM, ReflectLLM
 
 # Use a real LLM for tool selection and LLM-driven plugins
-llm = QwenLLM(api_key="your-api-key", model="qwen3.5-plus")
+llm = QwenLLM(api_key="your-api-key", model="qwen3-coder-next")
 
 agent = SlotAgent(llm=llm)
 
@@ -412,7 +412,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - [x] Comprehensive test suite
 - [x] Complete documentation and examples
 
-### v0.2.0-alpha (Current) ✅
+### v0.2.0-alpha (Previous) ✅
 
 - [x] SlotAgent facade (independent + embedded mode)
 - [x] LLM abstraction layer with QwenLLM and MockLLM
@@ -420,21 +420,21 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - [x] Natural language tool interaction (SlotAgent.run)
 - [x] Comprehensive examples with real LLM
 
-### v0.3.0 (Planned)
+### v0.3.0-alpha (Current) ✅
+
+- [x] LLM self-healing with enumerated error keys
+- [x] Improved examples demonstrating HealingLLM self-repair
+
+### v0.4.0 (Planned)
 
 - [ ] Async execution support (`async/await`)
 - [ ] Performance benchmarking and optimization
 - [ ] LangGraph integration example
 - [ ] Distributed approval manager (Redis-based)
 - [ ] Additional built-in plugins
-
-### v0.3.0 (Future)
-
 - [ ] Database persistence layer
 - [ ] Advanced healing strategies
 - [ ] Monitoring and alerting integrations
-- [ ] Web UI for approval management
-- [ ] Multi-tenancy support
 
 ---
 
