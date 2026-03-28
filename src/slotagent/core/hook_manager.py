@@ -45,6 +45,7 @@ class HookManager:
         "after_reflect",
         "guard_block",
         "wait_approval",
+        "approval_resolved",
     }
 
     def __init__(self):
@@ -62,6 +63,7 @@ class HookManager:
             "after_reflect": [],
             "guard_block": [],
             "wait_approval": [],
+            "approval_resolved": [],
         }
         self._lock = threading.Lock()
         self._logger = logging.getLogger("slotagent.hooks")

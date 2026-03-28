@@ -21,6 +21,7 @@ from slotagent.plugins.observe import LogPlugin
 from slotagent.plugins.schema import SchemaDefault
 from slotagent.types import (
     AfterExecEvent,
+    ApprovalResolvedEvent,
     ApprovalStatus,
     BeforeExecEvent,
     ExecutionStatus,
@@ -799,3 +800,83 @@ class TestToolRegistryIntegration:
 
         with pytest.raises(ToolNotFoundError, match="Tool 'removable_tool' not found"):
             scheduler.execute("removable_tool", {})
+
+
+# ---------------------------------------------------------------------------
+# 8. Batch 2 - approval_resolved hook events
+# ---------------------------------------------------------------------------
+
+
+class TestApprovalResolvedHookIntegration:
+    """Integration tests for approval_resolved hook event (Batch 2)."""
+
+    def _setup(self):
+        hook_manager = HookManager()
+        approval_manager = ApprovalManager(hook_manager=hook_manager)
+        scheduler = CoreScheduler(hook_manager=hook_manager)
+        scheduler.plugin_pool.register_global_plugin(
+            GuardHumanInLoop(approval_manager=approval_manager)
+        )
+        scheduler.register_tool(make_tool("pay_tool"))
+        return scheduler, approval_manager, hook_manager
+
+    def test_wait_approval_then_approve_emits_resolved(self):
+        """wait_approval -> approve -> approval_resolved(approved), no before_exec."""
+        scheduler, approval_manager, hook_manager = self._setup()
+        resolved_events = []
+        exec_events = []
+        hook_manager.subscribe("approval_resolved", resolved_events.append)
+        hook_manager.subscribe("before_exec", exec_events.append)
+
+        ctx = scheduler.execute("pay_tool", {})
+        assert ctx.status == ExecutionStatus.PENDING_APPROVAL
+
+        approval_manager.approve(ctx.approval_id, approver="admin")
+
+        assert len(resolved_events) == 1
+        e = resolved_events[0]
+        assert isinstance(e, ApprovalResolvedEvent)
+        assert e.resolution == "approved"
+        assert e.approval_id == ctx.approval_id
+        assert e.execution_id == ctx.execution_id
+        assert len(exec_events) == 0  # no auto-resume
+
+    def test_wait_approval_then_reject_emits_resolved(self):
+        """wait_approval -> reject -> approval_resolved(rejected)."""
+        scheduler, approval_manager, hook_manager = self._setup()
+        resolved_events = []
+        hook_manager.subscribe("approval_resolved", resolved_events.append)
+
+        ctx = scheduler.execute("pay_tool", {})
+        approval_manager.reject(ctx.approval_id, approver="admin", reason="denied")
+
+        assert len(resolved_events) == 1
+        assert resolved_events[0].resolution == "rejected"
+        assert resolved_events[0].reason == "denied"
+
+    def test_wait_approval_then_timeout_emits_resolved(self):
+        """wait_approval -> timeout -> approval_resolved(timeout)."""
+        scheduler, approval_manager, hook_manager = self._setup()
+        resolved_events = []
+        hook_manager.subscribe("approval_resolved", resolved_events.append)
+
+        approval_manager._default_timeout = 0.001
+        ctx = scheduler.execute("pay_tool", {})
+        time.sleep(0.01)
+        approval_manager.check_timeouts()
+
+        assert len(resolved_events) == 1
+        assert resolved_events[0].resolution == "timeout"
+
+    def test_approval_resolved_not_emitted_twice(self):
+        """Same approval cannot produce two approval_resolved events."""
+        scheduler, approval_manager, hook_manager = self._setup()
+        resolved_events = []
+        hook_manager.subscribe("approval_resolved", resolved_events.append)
+
+        ctx = scheduler.execute("pay_tool", {})
+        approval_manager.approve(ctx.approval_id, approver="admin")
+        with pytest.raises(ValueError):
+            approval_manager.approve(ctx.approval_id, approver="admin")
+
+        assert len(resolved_events) == 1

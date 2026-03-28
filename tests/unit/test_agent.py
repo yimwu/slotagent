@@ -590,3 +590,16 @@ class TestApprovalManagement:
         pending = agent.list_pending_approvals()
         pending_ids = {r.approval_id for r in pending}
         assert ctx.approval_id not in pending_ids
+
+    def test_on_approval_resolved_registers_subscriber(self):
+        """on_approval_resolved() registers handler for approval_resolved event"""
+        agent = self._setup_approval_agent()
+        events = []
+        agent.on_approval_resolved(lambda e: events.append(e))
+
+        ctx = agent.execute("payment_tool", {})
+        agent.approve(ctx.approval_id, approver="admin")
+
+        assert len(events) == 1
+        assert events[0].event_type == "approval_resolved"
+        assert events[0].resolution == "approved"

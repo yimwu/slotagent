@@ -506,6 +506,20 @@ class WaitApprovalEvent:
     metadata: Optional[Dict[str, Any]] = None
 
 
+@dataclass
+class ApprovalResolvedEvent:
+    """Event fired when an approval reaches a terminal state."""
+
+    approval_id: str
+    execution_id: str
+    tool_id: str
+    resolution: str  # "approved" | "rejected" | "timeout"
+    timestamp: float
+    approver: Optional[str] = None
+    reason: Optional[str] = None
+    event_type: str = "approval_resolved"
+
+
 # =============================================================================
 # Approval System Types
 # =============================================================================

@@ -73,7 +73,9 @@ class SlotAgent:
         if hook_manager is None:
             hook_manager = HookManager()
         if approval_manager is None:
-            approval_manager = ApprovalManager()
+            approval_manager = ApprovalManager(hook_manager=hook_manager)
+        elif approval_manager._hook_manager is None:
+            approval_manager._hook_manager = hook_manager
 
         self.plugin_pool = plugin_pool
         self.tool_registry = tool_registry
@@ -281,6 +283,10 @@ class SlotAgent:
     def on_wait_approval(self, handler: Callable) -> None:
         """Subscribe to wait_approval events."""
         self.hook_manager.subscribe("wait_approval", handler)
+
+    def on_approval_resolved(self, handler: Callable) -> None:
+        """Subscribe to approval_resolved events."""
+        self.hook_manager.subscribe("approval_resolved", handler)
 
     # -------------------------------------------------------------------------
     # Approval management (convenience wrappers)
