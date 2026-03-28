@@ -30,11 +30,28 @@ class TestHookManagerCreation:
     def test_initial_subscriber_counts_are_zero(self):
         """Test all event types start with zero subscribers"""
         manager = HookManager()
+        assert manager.get_subscriber_count("before_schema") == 0
+        assert manager.get_subscriber_count("after_schema") == 0
+        assert manager.get_subscriber_count("before_guard") == 0
         assert manager.get_subscriber_count("before_exec") == 0
         assert manager.get_subscriber_count("after_exec") == 0
         assert manager.get_subscriber_count("fail") == 0
+        assert manager.get_subscriber_count("after_healing") == 0
+        assert manager.get_subscriber_count("retry_started") == 0
+        assert manager.get_subscriber_count("after_reflect") == 0
         assert manager.get_subscriber_count("guard_block") == 0
         assert manager.get_subscriber_count("wait_approval") == 0
+
+    def test_batch1_event_dataclasses_exist(self):
+        """Test first-batch Hook event dataclasses are exposed in types."""
+        import slotagent.types as event_types
+
+        assert hasattr(event_types, "BeforeSchemaEvent")
+        assert hasattr(event_types, "AfterSchemaEvent")
+        assert hasattr(event_types, "BeforeGuardEvent")
+        assert hasattr(event_types, "AfterHealingEvent")
+        assert hasattr(event_types, "RetryStartedEvent")
+        assert hasattr(event_types, "AfterReflectEvent")
 
 
 class TestSubscription:
