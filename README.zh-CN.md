@@ -407,6 +407,10 @@ slotagent/
 - [ ] 高级恢复策略
 - [ ] 监控和告警集成
 
+### 未来计划
+
+- **JavaScript/TypeScript 版本**：我们计划创建 JavaScript/TypeScript 版本的 SlotAgent，将同样的插件插槽架构和可靠性保证带到 Node.js 和浏览器环境。这将保持与 Python 版本的 API 兼容性，同时支持与更广泛的 JavaScript 生态系统集成。
+
 ---
 
 ## 📊 项目状态
