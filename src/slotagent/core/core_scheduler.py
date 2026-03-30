@@ -16,12 +16,18 @@ from slotagent.core.plugin_pool import PluginPool
 from slotagent.interfaces import ToolNotFoundError
 from slotagent.types import (
     AfterExecEvent,
+    AfterHealingEvent,
+    AfterReflectEvent,
+    AfterSchemaEvent,
     BeforeExecEvent,
+    BeforeGuardEvent,
+    BeforeSchemaEvent,
     ExecutionStatus,
     FailEvent,
     GuardBlockEvent,
     PluginContext,
     PluginResult,
+    RetryStartedEvent,
     ToolExecutionContext,
     WaitApprovalEvent,
 )
@@ -215,9 +221,32 @@ class CoreScheduler:
         # 1. Schema layer
         schema_plugin = self.plugin_pool.get_plugin("schema", context.tool_id)
         if schema_plugin:
+            self.hook_manager.emit(
+                BeforeSchemaEvent(
+                    execution_id=context.execution_id,
+                    tool_id=context.tool_id,
+                    tool_name=context.tool_name,
+                    timestamp=time.time(),
+                    params=context.params,
+                )
+            )
             result = self._execute_plugin(schema_plugin, context, previous_results, tool)
             context.plugin_results["schema"] = result
             previous_results["schema"] = result.data
+
+            self.hook_manager.emit(
+                AfterSchemaEvent(
+                    execution_id=context.execution_id,
+                    tool_id=context.tool_id,
+                    tool_name=context.tool_name,
+                    timestamp=time.time(),
+                    params=context.params,
+                    success=result.success,
+                    should_continue=result.should_continue,
+                    schema_plugin_id=schema_plugin.plugin_id,
+                    error=result.error or "",
+                )
+            )
 
             if not result.should_continue:
                 context.status = ExecutionStatus.FAILED
@@ -240,6 +269,15 @@ class CoreScheduler:
         # 2. Guard layer
         guard_plugin = self.plugin_pool.get_plugin("guard", context.tool_id)
         if guard_plugin:
+            self.hook_manager.emit(
+                BeforeGuardEvent(
+                    execution_id=context.execution_id,
+                    tool_id=context.tool_id,
+                    tool_name=context.tool_name,
+                    timestamp=time.time(),
+                    params=context.params,
+                )
+            )
             result = self._execute_plugin(guard_plugin, context, previous_results, tool)
             context.plugin_results["guard"] = result
             previous_results["guard"] = result.data
@@ -346,14 +384,45 @@ class CoreScheduler:
                     context.plugin_results["healing"] = healing_result
                     previous_results["healing"] = healing_result.data
 
-                    if (
+                    fixed_params = healing_result.data.get("fixed_params") if healing_result.data else None
+                    fixed_params_applied = bool(fixed_params)
+                    if fixed_params:
+                        context.params = fixed_params
+
+                    recovered = bool(
                         healing_result.success
                         and healing_result.data
                         and healing_result.data.get("recovered")
-                    ):
-                        fixed_params = healing_result.data.get("fixed_params")
-                        if fixed_params:
-                            context.params = fixed_params
+                    )
+
+                    self.hook_manager.emit(
+                        AfterHealingEvent(
+                            execution_id=context.execution_id,
+                            tool_id=context.tool_id,
+                            tool_name=context.tool_name,
+                            timestamp=time.time(),
+                            attempt=attempt + 1,
+                            max_attempts=max_attempts,
+                            recovered=recovered,
+                            fixed_params_applied=fixed_params_applied,
+                            healing_plugin_id=healing_plugin.plugin_id,
+                            error=healing_result.error or "",
+                        )
+                    )
+
+                    if recovered:
+                        self.hook_manager.emit(
+                            RetryStartedEvent(
+                                execution_id=context.execution_id,
+                                tool_id=context.tool_id,
+                                tool_name=context.tool_name,
+                                timestamp=time.time(),
+                                attempt=attempt + 1,
+                                next_attempt=attempt + 2,
+                                max_attempts=max_attempts,
+                                reason=healing_result.error or "Recovered by healing plugin",
+                            )
+                        )
                         continue  # Retry with fixed params
 
                 # Healing unavailable or failed — mark execution as failed
@@ -371,6 +440,18 @@ class CoreScheduler:
             result = self._execute_plugin(reflect_plugin, context, previous_results, tool)
             context.plugin_results["reflect"] = result
             previous_results["reflect"] = result.data
+            self.hook_manager.emit(
+                AfterReflectEvent(
+                    execution_id=context.execution_id,
+                    tool_id=context.tool_id,
+                    tool_name=context.tool_name,
+                    timestamp=time.time(),
+                    reflect_plugin_id=reflect_plugin.plugin_id,
+                    success=result.success,
+                    should_continue=result.should_continue,
+                    error=result.error or "",
+                )
+            )
 
         # 6. Observe layer
         observe_plugin = self.plugin_pool.get_plugin("observe", context.tool_id)

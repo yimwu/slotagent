@@ -10,7 +10,7 @@ import time
 import pytest
 
 from slotagent.core.approval_manager import ApprovalManager
-from slotagent.types import ApprovalStatus
+from slotagent.types import ApprovalStatus, ApprovalResolvedEvent
 
 
 class TestApprovalManagerCreation:
@@ -376,3 +376,78 @@ class TestThreadSafety:
         assert ("approved" in results and "error" in results) or (
             "rejected" in results and "error" in results
         )
+
+
+class TestApprovalResolvedHook:
+    """Test approval_resolved hook event emission (Batch 2)"""
+
+    def _make_manager_with_hook(self):
+        from slotagent.core.hook_manager import HookManager
+        hook_manager = HookManager()
+        manager = ApprovalManager(hook_manager=hook_manager)
+        return manager, hook_manager
+
+    def test_approve_emits_approval_resolved(self):
+        """approve() emits approval_resolved with resolution=approved"""
+        manager, hook_manager = self._make_manager_with_hook()
+        events = []
+        hook_manager.subscribe("approval_resolved", events.append)
+
+        approval_id = manager.create_approval("exec-1", "tool", "Tool", {})
+        manager.approve(approval_id, approver="admin")
+
+        assert len(events) == 1
+        e = events[0]
+        assert isinstance(e, ApprovalResolvedEvent)
+        assert e.approval_id == approval_id
+        assert e.execution_id == "exec-1"
+        assert e.resolution == "approved"
+        assert e.approver == "admin"
+
+    def test_reject_emits_approval_resolved(self):
+        """reject() emits approval_resolved with resolution=rejected"""
+        manager, hook_manager = self._make_manager_with_hook()
+        events = []
+        hook_manager.subscribe("approval_resolved", events.append)
+
+        approval_id = manager.create_approval("exec-2", "tool", "Tool", {})
+        manager.reject(approval_id, approver="admin", reason="no budget")
+
+        assert len(events) == 1
+        e = events[0]
+        assert e.resolution == "rejected"
+        assert e.reason == "no budget"
+
+    def test_timeout_emits_approval_resolved(self):
+        """check_timeouts() emits approval_resolved with resolution=timeout"""
+        manager, hook_manager = self._make_manager_with_hook()
+        events = []
+        hook_manager.subscribe("approval_resolved", events.append)
+
+        approval_id = manager.create_approval("exec-3", "tool", "Tool", {}, timeout=0.001)
+        time.sleep(0.01)
+        expired = manager.check_timeouts()
+
+        assert approval_id in expired
+        assert len(events) == 1
+        assert events[0].resolution == "timeout"
+
+    def test_approval_resolved_emitted_only_once(self):
+        """Same approval cannot emit approval_resolved twice"""
+        manager, hook_manager = self._make_manager_with_hook()
+        events = []
+        hook_manager.subscribe("approval_resolved", events.append)
+
+        approval_id = manager.create_approval("exec-4", "tool", "Tool", {})
+        manager.approve(approval_id, approver="admin")
+        with pytest.raises(ValueError):
+            manager.approve(approval_id, approver="admin")
+
+        assert len(events) == 1
+
+    def test_no_hook_manager_still_works(self):
+        """ApprovalManager without hook_manager works normally"""
+        manager = ApprovalManager()
+        approval_id = manager.create_approval("exec-5", "tool", "Tool", {})
+        record = manager.approve(approval_id, approver="admin")
+        assert record.status == ApprovalStatus.APPROVED

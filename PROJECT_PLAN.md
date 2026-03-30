@@ -434,12 +434,13 @@
 
 ### 项目跟踪
 - [PROJECT_PLAN.md](./PROJECT_PLAN.md) - 此文档，开发计划和里程碑
+- [docs/architecture/hook_expansion_plan.md](./docs/architecture/hook_expansion_plan.md) - Hook 细粒度事件扩展专项计划与里程碑跟踪
 - [GitHub Issues](https://github.com/yimwu/slotagent/issues) - 任务和缺陷跟踪
 - [GitHub Discussions](https://github.com/yimwu/slotagent/discussions) - 设计讨论
 
 ---
 
-**文档版本：** 1.0
-**最后更新：** 2026-03-22
+**文档版本：** 1.1
+**最后更新：** 2026-03-27
 **维护者：** SlotAgent 核心团队
 

@@ -220,6 +220,211 @@ class TestPluginChainExecution:
         assert guard_context.previous_results["schema"]["plugin"] == "schema_mock"
 
 
+class TestBatch1HookExpansionRed:
+    """Red tests for first-batch fine-grained Hook events."""
+
+    def test_schema_phase_events_emitted_in_order(self):
+        """Schema execution should emit before_schema then after_schema."""
+        from slotagent.core.core_scheduler import CoreScheduler
+        from slotagent.core.hook_manager import HookManager
+
+        hook_manager = HookManager()
+        scheduler = CoreScheduler(hook_manager=hook_manager)
+        scheduler.plugin_pool.register_global_plugin(MockSchemaPlugin())
+        scheduler.register_tool(WEATHER_TOOL)
+
+        received_types = []
+        received_events = []
+
+        def record(event):
+            received_types.append(event.event_type)
+            received_events.append(event)
+
+        hook_manager.subscribe("before_schema", record)
+        hook_manager.subscribe("after_schema", record)
+
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
+
+        assert context.status == ExecutionStatus.COMPLETED
+        assert received_types == ["before_schema", "after_schema"]
+        assert received_events[0].execution_id == context.execution_id
+        assert received_events[1].execution_id == context.execution_id
+
+    def test_schema_failure_still_emits_after_schema_before_fail(self):
+        """Schema rejection should still emit after_schema before fail."""
+        from slotagent.core.core_scheduler import CoreScheduler
+        from slotagent.core.hook_manager import HookManager
+        from slotagent.interfaces import PluginInterface
+
+        class FailingSchemaPlugin(PluginInterface):
+            layer = "schema"
+            plugin_id = "schema_failing"
+
+            def validate(self):
+                return True
+
+            def execute(self, context):
+                return PluginResult(
+                    success=False,
+                    should_continue=False,
+                    error="Validation failed",
+                    error_type="ValidationError",
+                )
+
+        hook_manager = HookManager()
+        scheduler = CoreScheduler(hook_manager=hook_manager)
+        scheduler.plugin_pool.register_global_plugin(FailingSchemaPlugin())
+        scheduler.register_tool(WEATHER_TOOL)
+
+        received_types = []
+        after_schema_events = []
+        fail_events = []
+
+        def on_before_schema(event):
+            received_types.append(event.event_type)
+
+        def on_after_schema(event):
+            received_types.append(event.event_type)
+            after_schema_events.append(event)
+
+        def on_fail(event):
+            received_types.append(event.event_type)
+            fail_events.append(event)
+
+        hook_manager.subscribe("before_schema", on_before_schema)
+        hook_manager.subscribe("after_schema", on_after_schema)
+        hook_manager.subscribe("fail", on_fail)
+
+        context = scheduler.execute("weather_query", {})
+
+        assert context.status == ExecutionStatus.FAILED
+        assert received_types == ["before_schema", "after_schema", "fail"]
+        assert after_schema_events[0].success is False
+        assert after_schema_events[0].should_continue is False
+        assert fail_events[0].failed_stage == "schema"
+
+    def test_before_guard_emitted_when_guard_plugin_runs(self):
+        """Guard execution should emit before_guard."""
+        from slotagent.core.core_scheduler import CoreScheduler
+        from slotagent.core.hook_manager import HookManager
+
+        hook_manager = HookManager()
+        scheduler = CoreScheduler(hook_manager=hook_manager)
+        scheduler.plugin_pool.register_global_plugin(MockSchemaPlugin())
+        scheduler.plugin_pool.register_global_plugin(MockGuardPlugin())
+        scheduler.register_tool(WEATHER_TOOL)
+
+        events = []
+        hook_manager.subscribe("before_guard", lambda e: events.append(e))
+
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
+
+        assert context.status == ExecutionStatus.COMPLETED
+        assert len(events) == 1
+        assert events[0].event_type == "before_guard"
+        assert events[0].execution_id == context.execution_id
+
+    def test_healing_recovery_emits_after_healing_and_retry_started(self):
+        """Recoverable failure should emit after_healing then retry_started."""
+        from slotagent.core.core_scheduler import CoreScheduler
+        from slotagent.core.hook_manager import HookManager
+        from slotagent.interfaces import PluginInterface
+        from slotagent.types import Tool
+
+        calls = {"count": 0}
+
+        def flaky_execute(params):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise RuntimeError("boom")
+            return {"attempt": calls["count"]}
+
+        class RecoveringHealingPlugin(PluginInterface):
+            layer = "healing"
+            plugin_id = "healing_recovering"
+            max_retries = 1
+
+            def validate(self):
+                return True
+
+            def execute(self, context):
+                return PluginResult(success=True, data={"recovered": True})
+
+        hook_manager = HookManager()
+        scheduler = CoreScheduler(hook_manager=hook_manager)
+        scheduler.plugin_pool.register_global_plugin(RecoveringHealingPlugin())
+        scheduler.register_tool(
+            Tool(
+                tool_id="flaky_tool",
+                name="Flaky Tool",
+                description="Tool that fails once then succeeds",
+                input_schema={"type": "object", "properties": {}},
+                execute_func=flaky_execute,
+            )
+        )
+
+        received_types = []
+        after_healing_events = []
+        retry_events = []
+
+        def on_after_healing(event):
+            received_types.append(event.event_type)
+            after_healing_events.append(event)
+
+        def on_retry_started(event):
+            received_types.append(event.event_type)
+            retry_events.append(event)
+
+        hook_manager.subscribe("after_healing", on_after_healing)
+        hook_manager.subscribe("retry_started", on_retry_started)
+
+        context = scheduler.execute("flaky_tool", {})
+
+        assert context.status == ExecutionStatus.COMPLETED
+        assert context.final_result == {"attempt": 2}
+        assert received_types == ["after_healing", "retry_started"]
+        assert after_healing_events[0].recovered is True
+        assert after_healing_events[0].attempt == 1
+        assert after_healing_events[0].max_attempts == 2
+        assert after_healing_events[0].healing_plugin_id == "healing_recovering"
+        assert retry_events[0].attempt == 1
+        assert retry_events[0].next_attempt == 2
+        assert retry_events[0].max_attempts == 2
+
+    def test_after_reflect_emitted_after_reflect_plugin_executes(self):
+        """Reflect execution should emit after_reflect."""
+        from slotagent.core.core_scheduler import CoreScheduler
+        from slotagent.core.hook_manager import HookManager
+        from slotagent.interfaces import PluginInterface
+
+        class TrackingReflectPlugin(PluginInterface):
+            layer = "reflect"
+            plugin_id = "reflect_tracking"
+
+            def validate(self):
+                return True
+
+            def execute(self, context):
+                return PluginResult(success=True, should_continue=True, data={"reflected": True})
+
+        hook_manager = HookManager()
+        scheduler = CoreScheduler(hook_manager=hook_manager)
+        scheduler.plugin_pool.register_global_plugin(TrackingReflectPlugin())
+        scheduler.register_tool(WEATHER_TOOL)
+
+        events = []
+        hook_manager.subscribe("after_reflect", lambda e: events.append(e))
+
+        context = scheduler.execute("weather_query", {"location": "Beijing"})
+
+        assert context.status == ExecutionStatus.COMPLETED
+        assert len(events) == 1
+        assert events[0].event_type == "after_reflect"
+        assert events[0].reflect_plugin_id == "reflect_tracking"
+        assert events[0].success is True
+        assert events[0].should_continue is True
+
+
 class TestToolLevelPluginPriority:
     """Test tool-level plugin configuration priority"""
 

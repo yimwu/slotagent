@@ -21,6 +21,7 @@ from slotagent.plugins.observe import LogPlugin
 from slotagent.plugins.schema import SchemaDefault
 from slotagent.types import (
     AfterExecEvent,
+    ApprovalResolvedEvent,
     ApprovalStatus,
     BeforeExecEvent,
     ExecutionStatus,
@@ -294,6 +295,106 @@ class TestHookEvents:
         assert isinstance(after_events[0], AfterExecEvent)
         assert before_events[0].execution_id == ctx.execution_id
         assert after_events[0].execution_id == ctx.execution_id
+
+    def test_batch1_success_flow_emits_fine_grained_events_in_order(self):
+        """Success flow should include new batch1 Hook events in stable order."""
+        from slotagent.interfaces import PluginInterface
+        from slotagent.types import PluginResult
+
+        class TrackingReflectPlugin(PluginInterface):
+            layer = "reflect"
+            plugin_id = "reflect_tracking"
+
+            def validate(self):
+                return True
+
+            def execute(self, context):
+                return PluginResult(success=True, should_continue=True, data={"reflected": True})
+
+        hook_manager = HookManager()
+        scheduler = CoreScheduler(hook_manager=hook_manager)
+        scheduler.plugin_pool.register_global_plugin(SchemaDefault(schema=WEATHER_SCHEMA))
+        scheduler.plugin_pool.register_global_plugin(GuardDefault(whitelist=["weather_tool"]))
+        scheduler.plugin_pool.register_global_plugin(TrackingReflectPlugin())
+        scheduler.register_tool(make_tool("weather_tool", schema=WEATHER_SCHEMA))
+
+        event_types = []
+        for event_type in [
+            "before_schema",
+            "after_schema",
+            "before_guard",
+            "before_exec",
+            "after_exec",
+            "after_reflect",
+        ]:
+            hook_manager.subscribe(event_type, lambda e, et=event_type: event_types.append(e.event_type))
+
+        ctx = scheduler.execute("weather_tool", {"location": "Beijing"})
+
+        assert ctx.status == ExecutionStatus.COMPLETED
+        assert event_types == [
+            "before_schema",
+            "after_schema",
+            "before_guard",
+            "before_exec",
+            "after_exec",
+            "after_reflect",
+        ]
+
+    def test_batch1_schema_failure_emits_after_schema_before_fail(self):
+        """Schema failure should still emit after_schema before fail."""
+        hook_manager = HookManager()
+        scheduler = CoreScheduler(hook_manager=hook_manager)
+        scheduler.plugin_pool.register_global_plugin(SchemaDefault(schema=WEATHER_SCHEMA))
+        scheduler.register_tool(make_tool("weather_tool", schema=WEATHER_SCHEMA))
+
+        event_types = []
+        for event_type in ["before_schema", "after_schema", "fail"]:
+            hook_manager.subscribe(event_type, lambda e, et=event_type: event_types.append(e.event_type))
+
+        ctx = scheduler.execute("weather_tool", {})
+
+        assert ctx.status == ExecutionStatus.FAILED
+        assert event_types == ["before_schema", "after_schema", "fail"]
+
+    def test_batch1_recovery_flow_emits_after_healing_then_retry_started(self):
+        """Recoverable execution failure should emit healing retry events."""
+        from slotagent.interfaces import PluginInterface
+        from slotagent.types import PluginResult
+
+        calls = {"count": 0}
+
+        def flaky_func(params):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise RuntimeError("boom")
+            return {"attempt": calls["count"]}
+
+        class RecoveringHealingPlugin(PluginInterface):
+            layer = "healing"
+            plugin_id = "healing_recovering"
+            max_retries = 1
+
+            def validate(self):
+                return True
+
+            def execute(self, context):
+                return PluginResult(success=True, data={"recovered": True})
+
+        hook_manager = HookManager()
+        scheduler = CoreScheduler(hook_manager=hook_manager)
+        scheduler.plugin_pool.register_global_plugin(RecoveringHealingPlugin())
+        scheduler.register_tool(make_tool("flaky_tool", func=flaky_func))
+
+        event_types = []
+        for event_type in ["fail", "after_healing", "retry_started", "after_exec"]:
+            hook_manager.subscribe(event_type, lambda e, et=event_type: event_types.append(e.event_type))
+
+        ctx = scheduler.execute("flaky_tool", {})
+
+        assert ctx.status == ExecutionStatus.COMPLETED
+        assert ctx.final_result == {"attempt": 2}
+        assert event_types == ["fail", "after_healing", "retry_started", "after_exec"]
 
     def test_fail_event_emitted_on_tool_error(self):
         """FailEvent is emitted when tool execution raises an exception."""
@@ -699,3 +800,83 @@ class TestToolRegistryIntegration:
 
         with pytest.raises(ToolNotFoundError, match="Tool 'removable_tool' not found"):
             scheduler.execute("removable_tool", {})
+
+
+# ---------------------------------------------------------------------------
+# 8. Batch 2 - approval_resolved hook events
+# ---------------------------------------------------------------------------
+
+
+class TestApprovalResolvedHookIntegration:
+    """Integration tests for approval_resolved hook event (Batch 2)."""
+
+    def _setup(self):
+        hook_manager = HookManager()
+        approval_manager = ApprovalManager(hook_manager=hook_manager)
+        scheduler = CoreScheduler(hook_manager=hook_manager)
+        scheduler.plugin_pool.register_global_plugin(
+            GuardHumanInLoop(approval_manager=approval_manager)
+        )
+        scheduler.register_tool(make_tool("pay_tool"))
+        return scheduler, approval_manager, hook_manager
+
+    def test_wait_approval_then_approve_emits_resolved(self):
+        """wait_approval -> approve -> approval_resolved(approved), no before_exec."""
+        scheduler, approval_manager, hook_manager = self._setup()
+        resolved_events = []
+        exec_events = []
+        hook_manager.subscribe("approval_resolved", resolved_events.append)
+        hook_manager.subscribe("before_exec", exec_events.append)
+
+        ctx = scheduler.execute("pay_tool", {})
+        assert ctx.status == ExecutionStatus.PENDING_APPROVAL
+
+        approval_manager.approve(ctx.approval_id, approver="admin")
+
+        assert len(resolved_events) == 1
+        e = resolved_events[0]
+        assert isinstance(e, ApprovalResolvedEvent)
+        assert e.resolution == "approved"
+        assert e.approval_id == ctx.approval_id
+        assert e.execution_id == ctx.execution_id
+        assert len(exec_events) == 0  # no auto-resume
+
+    def test_wait_approval_then_reject_emits_resolved(self):
+        """wait_approval -> reject -> approval_resolved(rejected)."""
+        scheduler, approval_manager, hook_manager = self._setup()
+        resolved_events = []
+        hook_manager.subscribe("approval_resolved", resolved_events.append)
+
+        ctx = scheduler.execute("pay_tool", {})
+        approval_manager.reject(ctx.approval_id, approver="admin", reason="denied")
+
+        assert len(resolved_events) == 1
+        assert resolved_events[0].resolution == "rejected"
+        assert resolved_events[0].reason == "denied"
+
+    def test_wait_approval_then_timeout_emits_resolved(self):
+        """wait_approval -> timeout -> approval_resolved(timeout)."""
+        scheduler, approval_manager, hook_manager = self._setup()
+        resolved_events = []
+        hook_manager.subscribe("approval_resolved", resolved_events.append)
+
+        approval_manager._default_timeout = 0.001
+        ctx = scheduler.execute("pay_tool", {})
+        time.sleep(0.01)
+        approval_manager.check_timeouts()
+
+        assert len(resolved_events) == 1
+        assert resolved_events[0].resolution == "timeout"
+
+    def test_approval_resolved_not_emitted_twice(self):
+        """Same approval cannot produce two approval_resolved events."""
+        scheduler, approval_manager, hook_manager = self._setup()
+        resolved_events = []
+        hook_manager.subscribe("approval_resolved", resolved_events.append)
+
+        ctx = scheduler.execute("pay_tool", {})
+        approval_manager.approve(ctx.approval_id, approver="admin")
+        with pytest.raises(ValueError):
+            approval_manager.approve(ctx.approval_id, approver="admin")
+
+        assert len(resolved_events) == 1

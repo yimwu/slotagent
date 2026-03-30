@@ -12,7 +12,7 @@ import time
 import uuid
 from typing import Dict, List, Optional
 
-from slotagent.types import ApprovalRecord, ApprovalStatus
+from slotagent.types import ApprovalRecord, ApprovalResolvedEvent, ApprovalStatus
 
 
 class ApprovalManager:
@@ -32,16 +32,31 @@ class ApprovalManager:
         >>> manager.approve(approval_id, approver="admin@example.com")
     """
 
-    def __init__(self, default_timeout: float = 300.0):
+    def __init__(self, default_timeout: float = 300.0, hook_manager=None):
         """
         Initialize ApprovalManager.
 
         Args:
             default_timeout: Default approval timeout in seconds (default: 5 min)
+            hook_manager: Optional HookManager for emitting approval_resolved events
         """
         self._approvals: Dict[str, ApprovalRecord] = {}
         self._lock = threading.Lock()
         self._default_timeout = default_timeout
+        self._hook_manager = hook_manager
+
+    def _emit_resolved(self, record: ApprovalRecord, resolution: str, approver: Optional[str], reason: Optional[str]) -> None:
+        if self._hook_manager is None:
+            return
+        self._hook_manager.emit(ApprovalResolvedEvent(
+            approval_id=record.approval_id,
+            execution_id=record.execution_id,
+            tool_id=record.tool_id,
+            resolution=resolution,
+            timestamp=time.time(),
+            approver=approver,
+            reason=reason,
+        ))
 
     def create_approval(
         self,
@@ -151,7 +166,9 @@ class ApprovalManager:
             )
 
             self._approvals[approval_id] = updated_record
-            return updated_record
+
+        self._emit_resolved(updated_record, "approved", approver, None)
+        return updated_record
 
     def reject(self, approval_id: str, approver: str, reason: str) -> ApprovalRecord:
         """
@@ -210,7 +227,9 @@ class ApprovalManager:
             )
 
             self._approvals[approval_id] = updated_record
-            return updated_record
+
+        self._emit_resolved(updated_record, "rejected", approver, reason)
+        return updated_record
 
     def get_approval(self, approval_id: str) -> Optional[ApprovalRecord]:
         """
@@ -248,6 +267,7 @@ class ApprovalManager:
         current_time = time.time()
         expired_ids = []
 
+        timed_out_records = []
         with self._lock:
             for approval_id, record in self._approvals.items():
                 # Only mark PENDING approvals that have timed out
@@ -270,6 +290,10 @@ class ApprovalManager:
 
                     self._approvals[approval_id] = updated_record
                     expired_ids.append(approval_id)
+                    timed_out_records.append(updated_record)
+
+        for record in timed_out_records:
+            self._emit_resolved(record, "timeout", None, "Approval request timed out")
 
         return expired_ids
 

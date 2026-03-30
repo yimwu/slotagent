@@ -1,48 +1,71 @@
 # Hook System Architecture
 
+**文档版本:** 1.1
+**最后更新:** 2026-03-27
+**状态:** Approved
+
 ## 概述 (Overview)
 
-Hook 系统是 SlotAgent 实现可观测性的核心机制。通过发布-订阅模式，Hook 系统允许外部系统订阅工具执行生命周期中的关键事件，从而实现监控、日志、审批、告警等功能，同时保持核心引擎的轻量和无耦合。
+Hook 系统是 SlotAgent 可观测性的核心机制。通过发布-订阅模型，核心调度引擎只负责在关键生命周期节点发出事件，外部系统按需订阅并处理这些事件，从而实现日志、监控、审批通知、审计等能力，同时保持内核轻量和职责边界清晰。
 
-## 设计原则
+在保持既有 5 个核心事件完全兼容的前提下，第一批扩展新增 6 个调度阶段细粒度事件：
 
-1. **松耦合**: 核心引擎只负责发布事件，不关心订阅者
-2. **异步非阻塞**: 事件处理不阻塞主流程（Phase 5 先实现同步，Phase 6+ 优化为异步）
-3. **订阅者隔离**: 订阅者异常不影响主流程和其他订阅者
-4. **线程安全**: 支持多线程环境下的订阅和发布
+- `before_schema`
+- `after_schema`
+- `before_guard`
+- `after_healing`
+- `retry_started`
+- `after_reflect`
 
-## 系统架构
+因此，当前正式纳入 Hook 架构范围的调度域事件共 11 个：
 
-```
+- 既有事件：`before_exec`、`after_exec`、`fail`、`guard_block`、`wait_approval`
+- 第一批扩展事件：`before_schema`、`after_schema`、`before_guard`、`after_healing`、`retry_started`、`after_reflect`
+
+`approval_resolved` 属于第二批审批域事件，当前仅保留架构边界，不纳入本批正式接口范围。
+
+## 设计原则 (Design Principles)
+
+1. **松耦合**：核心引擎只发布事件，不直接依赖外部处理器。
+2. **极小内核**：新增能力以补充事件模型和 emit 点为主，不把业务策略塞入 `CoreScheduler`。
+3. **同步分发**：当前阶段继续使用同步分发，保持实现简单、行为可预测、易于测试。
+4. **订阅者隔离**：单个订阅者异常不得影响主流程和其他订阅者。
+5. **向后兼容优先**：既有 5 个事件的名称、触发时机、订阅方式保持不变。
+6. **事件数量受控**：只引入当前明确需要的事件，不补充未被需求驱动的对称事件。
+7. **调度域与审批域分层**：`wait_approval` 表示调度链被 Guard 暂停；审批终态通知由第二批单独处理，不在本批混入恢复执行逻辑。
+
+## 系统架构 (Architecture)
+
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                      Hook System                            │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  ┌──────────────────────────────────────────────────┐      │
-│  │           HookManager (Hook管理器)               │      │
-│  ├──────────────────────────────────────────────────┤      │
-│  │  - subscribe(event_type, handler)                │      │
-│  │  - unsubscribe(event_type, handler)              │      │
-│  │  - emit(event)                                   │      │
-│  │  - clear_subscribers(event_type)                 │      │
-│  └──────────────────────────────────────────────────┘      │
-│                      ↓                                      │
-│  ┌──────────────────────────────────────────────────┐      │
-│  │         Event Dispatcher (事件分发器)            │      │
-│  ├──────────────────────────────────────────────────┤      │
-│  │  同步分发事件到所有订阅者                        │      │
-│  │  捕获订阅者异常，不影响主流程                    │      │
-│  └──────────────────────────────────────────────────┘      │
-│                      ↓                                      │
-│  ┌──────────────────────────────────────────────────┐      │
-│  │        Subscribers (订阅者/处理器)               │      │
-│  ├──────────────────────────────────────────────────┤      │
-│  │  - Logging Handler: 记录日志                     │      │
-│  │  - Metrics Handler: 更新监控指标                 │      │
-│  │  - Alert Handler: 发送告警                       │      │
-│  │  - Approval Handler: 触发审批流程                │      │
-│  │  - IM Notification: 发送 IM 通知                 │      │
-│  └──────────────────────────────────────────────────┘      │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │                HookManager (事件管理器)              │  │
+│  ├───────────────────────────────────────────────────────┤  │
+│  │  - subscribe(event_type, handler)                    │  │
+│  │  - unsubscribe(event_type, handler)                  │  │
+│  │  - emit(event)                                       │  │
+│  │  - clear_subscribers(event_type)                     │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                        ↓                                    │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │              Event Dispatcher (同步分发)             │  │
+│  ├───────────────────────────────────────────────────────┤  │
+│  │  - 复制订阅者列表后分发                              │  │
+│  │  - 捕获订阅者异常，不中断主流程                      │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                        ↓                                    │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │               Subscribers (外部订阅者)               │  │
+│  ├───────────────────────────────────────────────────────┤  │
+│  │  - Logging                                            │  │
+│  │  - Metrics                                            │  │
+│  │  - Alerting                                           │  │
+│  │  - Approval Notification                              │  │
+│  │  - Audit / Trace                                      │  │
+│  └───────────────────────────────────────────────────────┘  │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
          ↑                                           ↑
@@ -50,395 +73,322 @@ Hook 系统是 SlotAgent 实现可观测性的核心机制。通过发布-订阅
    (事件发布者)                              (事件消费者)
 ```
 
-## 核心组件
+## 接口规格 (Interface Specification)
 
-### 1. HookManager (Hook管理器)
+### 1. HookManager
 
-**职责**:
-- 管理事件订阅关系
-- 分发事件到订阅者
-- 处理订阅者异常
-- 保证线程安全
+**职责：**
 
-**核心接口**:
+- 管理合法事件类型与订阅关系
+- 对指定事件类型执行订阅 / 取消订阅
+- 同步向所有订阅者广播事件
+- 捕获并记录订阅者异常
+- 在多线程环境中保持内部状态一致
+
+**正式事件类型（第一批同步后）：**
 
 ```python
-from typing import Callable, Dict, List
-import threading
-import logging
-
-HookHandler = Callable[[HookEvent], None]
-
-class HookManager:
-    """
-    Hook manager for event subscription and dispatching.
-
-    Thread-safe implementation using locks.
-    """
-
-    def __init__(self):
-        """Initialize HookManager."""
-        self._subscribers: Dict[str, List[HookHandler]] = {
-            'before_exec': [],
-            'after_exec': [],
-            'fail': [],
-            'guard_block': [],
-            'wait_approval': []
-        }
-        self._lock = threading.Lock()
-        self._logger = logging.getLogger('slotagent.hooks')
-
-    def subscribe(
-        self,
-        event_type: str,
-        handler: HookHandler
-    ) -> None:
-        """
-        Subscribe to a hook event.
-
-        Args:
-            event_type: Event type to subscribe
-            handler: Callable that handles the event
-
-        Raises:
-            ValueError: If event_type is invalid
-        """
-        pass
-
-    def unsubscribe(
-        self,
-        event_type: str,
-        handler: HookHandler
-    ) -> None:
-        """
-        Unsubscribe from a hook event.
-
-        Args:
-            event_type: Event type to unsubscribe
-            handler: Handler to remove
-
-        Raises:
-            ValueError: If event_type is invalid
-        """
-        pass
-
-    def emit(self, event: HookEvent) -> None:
-        """
-        Emit a hook event to all subscribers.
-
-        Args:
-            event: Hook event to emit
-
-        Notes:
-            - Calls all subscribers synchronously
-            - Catches and logs subscriber exceptions
-            - Does not re-raise exceptions (non-blocking)
-        """
-        pass
-
-    def clear_subscribers(self, event_type: Optional[str] = None) -> None:
-        """
-        Clear all subscribers for an event type (or all events).
-
-        Args:
-            event_type: Event type to clear (None = all)
-        """
-        pass
-
-    def get_subscriber_count(self, event_type: str) -> int:
-        """
-        Get number of subscribers for an event type.
-
-        Args:
-            event_type: Event type
-
-        Returns:
-            Number of subscribers
-        """
-        pass
+VALID_EVENT_TYPES = {
+    "before_schema",
+    "after_schema",
+    "before_guard",
+    "before_exec",
+    "after_exec",
+    "fail",
+    "after_healing",
+    "retry_started",
+    "after_reflect",
+    "guard_block",
+    "wait_approval",
+}
 ```
 
-### 2. Event Dispatcher (事件分发逻辑)
+**内部订阅表结构：**
 
-**实现细节**:
+```python
+self._subscribers: Dict[str, List[HookHandler]] = {
+    event_type: [] for event_type in VALID_EVENT_TYPES
+}
+```
+
+**核心接口：**
+
+```python
+class HookManager:
+    def subscribe(self, event_type: str, handler: HookHandler) -> None:
+        """Subscribe to a hook event."""
+
+    def unsubscribe(self, event_type: str, handler: HookHandler) -> None:
+        """Unsubscribe from a hook event."""
+
+    def emit(self, event: HookEvent) -> None:
+        """Emit a hook event to all subscribers."""
+
+    def clear_subscribers(self, event_type: Optional[str] = None) -> None:
+        """Clear subscribers for one event type or all event types."""
+
+    def get_subscriber_count(self, event_type: str) -> int:
+        """Get subscriber count for an event type."""
+```
+
+### 2. 事件域边界
+
+#### 2.1 调度域事件
+
+以下事件都由 `CoreScheduler` 驱动，属于工具调度生命周期的一部分：
+
+- `before_schema`
+- `after_schema`
+- `before_guard`
+- `before_exec`
+- `after_exec`
+- `fail`
+- `after_healing`
+- `retry_started`
+- `after_reflect`
+- `guard_block`
+- `wait_approval`
+
+#### 2.2 审批域事件（第二批预留）
+
+审批状态从 `PENDING` 进入终态后的通知事件 `approval_resolved` 不在本批接口内。其职责是表达“审批状态完成”，而不是表达“调度继续执行”。
+
+### 3. Event Dispatcher
 
 ```python
 def emit(self, event: HookEvent) -> None:
     """Emit event to all subscribers."""
     event_type = event.event_type
 
-    # Get subscribers (thread-safe)
     with self._lock:
         subscribers = self._subscribers.get(event_type, []).copy()
 
-    # Dispatch to each subscriber
     for handler in subscribers:
         try:
             handler(event)
-        except Exception as e:
-            # Log error but don't re-raise
+        except Exception as exc:
             self._logger.error(
-                f"Hook handler error for {event_type}: {e}",
+                f"Hook handler error for {event_type}: {exc}",
                 exc_info=True,
                 extra={
                     "event_type": event_type,
-                    "execution_id": getattr(event, 'execution_id', None),
-                    "handler": handler.__name__
-                }
+                    "execution_id": getattr(event, "execution_id", None),
+                    "handler": getattr(handler, "__name__", repr(handler)),
+                },
             )
 ```
 
-**关键特性**:
-1. **线程安全**: 复制订阅者列表，避免迭代时修改
-2. **异常隔离**: 捕获单个订阅者异常，不影响其他订阅者
-3. **同步执行**: Phase 5 使用同步调用，简单可靠
-4. **日志记录**: 记录所有异常，便于调试
+**关键特性：**
 
-### 3. CoreScheduler 集成
+1. **线程安全**：读取订阅者时短暂持锁，随后在锁外分发。
+2. **异常隔离**：任何单个订阅者失败都不会中断其他订阅者或主流程。
+3. **同步执行**：事件顺序与调度顺序保持一致，便于精确断言。
+4. **低侵入性**：仅引入常量级判断与事件对象构造开销。
 
-**事件触发点**:
+### 4. CoreScheduler 集成点
 
 ```python
 class CoreScheduler:
-    def __init__(self, plugin_pool, tool_registry, hook_manager=None):
-        self.plugin_pool = plugin_pool
-        self.tool_registry = tool_registry
-        self.hook_manager = hook_manager or HookManager()
-
     def _execute_plugin_chain(self, context, tool):
         previous_results = {}
 
         # 1. Schema layer
-        schema_plugin = self.plugin_pool.get_plugin('schema', context.tool_id)
+        schema_plugin = self.plugin_pool.get_plugin("schema", context.tool_id)
         if schema_plugin:
-            result = self._execute_plugin(schema_plugin, context, previous_results)
-            context.plugin_results['schema'] = result
-            previous_results['schema'] = result.data
+            self.hook_manager.emit(BeforeSchemaEvent(...))
+            result = self._execute_plugin(schema_plugin, context, previous_results, tool)
+            self.hook_manager.emit(AfterSchemaEvent(...))
 
             if not result.should_continue:
-                context.status = ExecutionStatus.FAILED
-                context.error = result.error
-                # Emit fail event
-                self.hook_manager.emit(FailEvent(
-                    execution_id=context.execution_id,
-                    tool_id=context.tool_id,
-                    tool_name=context.tool_name,
-                    timestamp=time.time(),
-                    params=context.params,
-                    error=result.error,
-                    error_type=result.error_type or "ValidationError",
-                    failed_stage="schema"
-                ))
+                self.hook_manager.emit(FailEvent(..., failed_stage="schema"))
                 return context
 
         # 2. Guard layer
-        guard_plugin = self.plugin_pool.get_plugin('guard', context.tool_id)
+        guard_plugin = self.plugin_pool.get_plugin("guard", context.tool_id)
         if guard_plugin:
-            result = self._execute_plugin(guard_plugin, context, previous_results)
-            context.plugin_results['guard'] = result
-            previous_results['guard'] = result.data
+            self.hook_manager.emit(BeforeGuardEvent(...))
+            result = self._execute_plugin(guard_plugin, context, previous_results, tool)
+
+            if result.data and result.data.get("pending_approval"):
+                self.hook_manager.emit(WaitApprovalEvent(...))
+                return context
 
             if not result.should_continue:
-                # Check if pending approval
-                if result.data and result.data.get('pending_approval'):
-                    context.status = ExecutionStatus.PENDING_APPROVAL
-                    context.approval_id = result.data.get('approval_id')
-                    # Emit wait_approval event
-                    self.hook_manager.emit(WaitApprovalEvent(
-                        execution_id=context.execution_id,
-                        tool_id=context.tool_id,
-                        tool_name=context.tool_name,
-                        timestamp=time.time(),
-                        params=context.params,
-                        approval_id=context.approval_id,
-                        approval_context=result.data.get('approval_context')
-                    ))
-                else:
-                    # Guard blocked
-                    context.status = ExecutionStatus.FAILED
-                    context.error = result.data.get('reason', 'Blocked by guard')
-                    # Emit guard_block event
-                    self.hook_manager.emit(GuardBlockEvent(
-                        execution_id=context.execution_id,
-                        tool_id=context.tool_id,
-                        tool_name=context.tool_name,
-                        timestamp=time.time(),
-                        params=context.params,
-                        reason=context.error,
-                        guard_plugin_id=guard_plugin.plugin_id
-                    ))
+                self.hook_manager.emit(GuardBlockEvent(...))
+                return context
+
+        # 3. Tool execute
+        self.hook_manager.emit(BeforeExecEvent(...))
+
+        for attempt in range(max_attempts):
+            try:
+                final_result = tool.execute_func(context.params)
+                self.hook_manager.emit(AfterExecEvent(...))
+                break
+            except Exception as exc:
+                self.hook_manager.emit(FailEvent(..., failed_stage="execute"))
+
+                if healing_plugin and attempt < max_attempts - 1:
+                    healing_result = self._execute_plugin(
+                        healing_plugin, context, previous_results, tool
+                    )
+                    self.hook_manager.emit(AfterHealingEvent(...))
+
+                    if healing_result.data and healing_result.data.get("recovered"):
+                        self.hook_manager.emit(RetryStartedEvent(...))
+                        continue
 
                 return context
 
-        # Emit before_exec event
-        self.hook_manager.emit(BeforeExecEvent(
-            execution_id=context.execution_id,
-            tool_id=context.tool_id,
-            tool_name=context.tool_name,
-            timestamp=time.time(),
-            params=context.params
-        ))
+        # 4. Reflect layer
+        reflect_plugin = self.plugin_pool.get_plugin("reflect", context.tool_id)
+        if reflect_plugin:
+            result = self._execute_plugin(reflect_plugin, context, previous_results, tool)
+            self.hook_manager.emit(AfterReflectEvent(...))
 
-        # 3. Execute tool
-        try:
-            final_result = tool.execute_func(context.params)
-            context.final_result = final_result
-
-            # Emit after_exec event
-            self.hook_manager.emit(AfterExecEvent(
-                execution_id=context.execution_id,
-                tool_id=context.tool_id,
-                tool_name=context.tool_name,
-                timestamp=time.time(),
-                params=context.params,
-                result=final_result,
-                execution_time=time.time() - context.start_time
-            ))
-
-        except Exception as e:
-            # Tool execution failed
-            context.status = ExecutionStatus.FAILED
-            context.error = f"Tool execution failed: {str(e)}"
-            # Emit fail event
-            self.hook_manager.emit(FailEvent(
-                execution_id=context.execution_id,
-                tool_id=context.tool_id,
-                tool_name=context.tool_name,
-                timestamp=time.time(),
-                params=context.params,
-                error=str(e),
-                error_type=type(e).__name__,
-                failed_stage="execute"
-            ))
-            return context
-
-        # 4. Reflect and Observe layers (unchanged)
-        # ...
-
-        context.status = ExecutionStatus.COMPLETED
         return context
 ```
 
-## 使用场景
+**触发规则：**
 
-### 场景1: 日志记录
+1. `before_schema` / `after_schema` 仅在 Schema 插件真实执行时触发。
+2. `after_schema` 无论校验通过还是失败都必须触发一次。
+3. `before_guard` 仅在 Guard 插件真实执行时触发。
+4. `after_healing` 仅在工具执行失败且 Healing 插件真实执行时触发。
+5. `retry_started` 仅在 Healing 明确给出“可恢复并继续下一次尝试”时触发。
+6. `after_reflect` 仅在 Reflect 插件真实执行时触发。
+7. `wait_approval` 与 `guard_block` 仍维持原有语义，不因新增细粒度事件而改变。
 
-```python
-def log_handler(event: HookEvent):
-    """Log all events."""
-    logger.info(
-        f"[{event.event_type}] {event.tool_id}",
-        extra={
-            "execution_id": event.execution_id,
-            "timestamp": event.timestamp
-        }
-    )
+## 流程与状态 (Workflow & State Machines)
 
-hook_manager.subscribe('before_exec', log_handler)
-hook_manager.subscribe('after_exec', log_handler)
-hook_manager.subscribe('fail', log_handler)
+### 1. 正常成功流程
+
+```text
+before_schema
+  -> schema execute
+  -> after_schema
+      -> before_guard
+          -> guard execute
+              -> before_exec
+                  -> tool execute success
+                      -> after_exec
+                          -> reflect execute
+                              -> after_reflect
+                                  -> observe
+                                      -> completed
 ```
 
-### 场景2: Prometheus 监控
+### 2. Schema 失败流程
 
-```python
-from prometheus_client import Counter, Histogram
-
-tool_executions = Counter('tool_executions_total', 'Total tool executions', ['tool_id', 'status'])
-tool_duration = Histogram('tool_execution_seconds', 'Tool execution duration', ['tool_id'])
-
-def metrics_handler(event: HookEvent):
-    """Update Prometheus metrics."""
-    if isinstance(event, AfterExecEvent):
-        tool_executions.labels(tool_id=event.tool_id, status='success').inc()
-        tool_duration.labels(tool_id=event.tool_id).observe(event.execution_time)
-    elif isinstance(event, FailEvent):
-        tool_executions.labels(tool_id=event.tool_id, status='failed').inc()
-
-hook_manager.subscribe('after_exec', metrics_handler)
-hook_manager.subscribe('fail', metrics_handler)
+```text
+before_schema
+  -> schema execute
+  -> after_schema(success=false, should_continue=false)
+      -> fail(failed_stage=schema)
 ```
 
-### 场景3: IM 通知（审批）
+### 3. Healing 恢复与重试流程
 
-```python
-def approval_notification_handler(event: WaitApprovalEvent):
-    """Send approval notification to IM."""
-    message = (
-        f"⚠️ Approval Required\n"
-        f"Tool: {event.tool_name}\n"
-        f"Execution ID: {event.execution_id}\n"
-        f"Approval ID: {event.approval_id}\n"
-        f"[Approve] [Reject]"
-    )
-
-    send_im_message(
-        channel='#approvals',
-        message=message,
-        buttons=[
-            {'label': 'Approve', 'action': f'approve:{event.approval_id}'},
-            {'label': 'Reject', 'action': f'reject:{event.approval_id}'}
-        ]
-    )
-
-hook_manager.subscribe('wait_approval', approval_notification_handler)
+```text
+before_exec
+  -> tool execute fail
+      -> fail(failed_stage=execute)
+          -> healing execute
+              -> after_healing(recovered=true)
+                  -> retry_started
+                      -> next attempt
+                          -> after_exec
+                              -> after_reflect
 ```
 
-## 设计决策
+### 4. Guard 拦截 / 审批流程
 
-### D1: 同步 vs 异步事件分发
-- **Phase 5 决策**: 同步分发
-- **理由**:
-  - 简单可靠，易于测试
-  - 大多数订阅者处理很快（日志、指标）
-  - 避免异步复杂性
-- **未来优化**: Phase 6+ 可考虑异步队列
+```text
+before_guard
+  -> guard execute
+      -> guard_block
+```
 
-### D2: 订阅者异常处理
-- **决策**: 捕获异常，记录日志，不re-raise
-- **理由**:
-  - 订阅者错误不应影响主流程
-  - 订阅者之间应隔离
-  - 便于调试（日志记录）
+```text
+before_guard
+  -> guard execute
+      -> wait_approval
+          -> approval pending
+```
 
-### D3: 线程安全策略
-- **决策**: 使用 threading.Lock 保护订阅者字典
-- **理由**:
-  - 简单有效
-  - Python GIL 下性能足够
-  - 避免复杂的无锁数据结构
+### 5. 当前审批边界
 
-### D4: 事件不可变性
-- **决策**: Phase 5 使用普通 dataclass（可变）
-- **理由**: 简化实现，后续可优化为 frozen
-- **权衡**: 订阅者可能意外修改事件，但通过文档约束
+第一批只覆盖调度链中的 `wait_approval` 观测点；审批从 `PENDING` 进入 `APPROVED` / `REJECTED` / `TIMEOUT` 的终态通知由第二批 `approval_resolved` 单独补充，且不在本批引入“审批通过后自动恢复执行”的链路。
 
-## 性能考虑
+## 非功能要求 (Non-Functional Requirements)
 
-1. **订阅者复制**: emit() 时复制订阅者列表，避免长时间持锁
-2. **异常捕获开销**: 正常情况无异常，开销可忽略
-3. **同步调用**: 订阅者应快速返回，避免阻塞主流程
-4. **内存占用**: 事件对象短生命周期，GC 及时回收
+### 1. 兼容性
 
-## 测试策略
+1. 既有 5 个事件名称、订阅方式、触发语义保持兼容。
+2. 未订阅新增事件时，现有业务行为不受影响。
+3. 旧订阅者无需改代码即可继续工作。
+
+### 2. 性能
+
+1. 新增 Hook 仅允许引入常量级额外判断和对象构造开销。
+2. 不允许为了 Hook 扩展引入网络 I/O、持久化 I/O 或异步队列。
+3. 订阅者应快速返回，避免长期阻塞主流程。
+
+### 3. 可靠性
+
+1. 订阅者异常必须被隔离并记录日志。
+2. `after_schema`、`after_healing`、`after_reflect` 的触发条件必须可预测、可测试。
+3. `retry_started` 的 `attempt` / `next_attempt` 编号必须稳定可断言。
+
+### 4. 可追踪性
+
+1. 所有调度域事件必须携带相同的 `execution_id`。
+2. `wait_approval` 必须携带 `approval_id`。
+3. 事件顺序必须能被单元测试和集成测试稳定断言。
+
+## 测试策略 (Testing Strategy)
 
 ### 单元测试
-1. **HookManager 测试**:
-   - 订阅和取消订阅
-   - 事件分发到多个订阅者
-   - 订阅者异常隔离
-   - 线程安全
 
-2. **CoreScheduler 集成测试**:
-   - 各事件在正确时机触发
-   - 事件携带正确数据
+1. **HookManager**
+   - 新事件可订阅 / 取消订阅 / 计数
+   - 非法事件类型仍被拒绝
+
+2. **CoreScheduler**
+   - 有 Schema 插件时触发 `before_schema` → `after_schema`
+   - Schema 失败时仍触发 `after_schema`，随后触发 `fail`
+   - 有 Guard 插件时触发 `before_guard`
+   - Healing 成功恢复时触发 `after_healing` 与 `retry_started`
+   - Reflect 执行后触发 `after_reflect`
+
+3. **SlotAgent**
+   - 新增便利订阅接口正确注册到相应 `event_type`
 
 ### 集成测试
-1. **完整流程测试**:
-   - 正常流程: before_exec → after_exec
-   - 失败流程: before_exec → fail
-   - 审批流程: wait_approval → ...
 
-## 版本历史
+1. 成功流程包含：`before_schema`、`after_schema`、`before_guard`、`before_exec`、`after_exec`、`after_reflect`
+2. 重试流程包含：`fail`、`after_healing`、`retry_started`
+3. Guard 审批 / 拦截分支不因本批新增事件而回归
 
-- **1.0** (2026-03-22): 初始版本，定义 Hook 系统架构和 HookManager 接口
+## 设计决策 (Design Decisions)
+
+### D1: 继续保持同步分发
+- **决策**：当前阶段继续采用同步分发。
+- **理由**：行为简单、顺序稳定、测试断言直接。
+
+### D2: 受控扩展而非对称扩张
+- **决策**：仅增加用户明确需要的 6 个细粒度调度事件。
+- **理由**：避免 `after_guard`、`before_healing`、`before_reflect` 等未被需求驱动的事件扩张。
+
+### D3: 调度域与审批域分层
+- **决策**：`wait_approval` 与未来的 `approval_resolved` 分开建模。
+- **理由**：审批状态完成不等价于调度继续执行，避免职责混淆。
+
+### D4: 向后兼容优先
+- **决策**：旧事件不重命名、不改变原有语义。
+- **理由**：保护已有订阅者与测试基线。
+
+## 变更历史 (Changelog)
+
+- **1.1** (2026-03-27): 同步第一批细粒度 Hook 正式规格，新增 6 个调度阶段事件与对应流程约束。
+- **1.0** (2026-03-22): 初始版本，定义 Hook 系统架构和 HookManager 接口。

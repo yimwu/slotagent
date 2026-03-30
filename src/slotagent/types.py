@@ -293,6 +293,61 @@ class HookEvent:
 
 
 @dataclass
+class BeforeSchemaEvent:
+    """
+    Event fired before schema plugin execution starts.
+
+    Triggered when a schema plugin exists and is about to run.
+    """
+
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    params: Dict[str, Any]
+    event_type: str = "before_schema"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class AfterSchemaEvent:
+    """
+    Event fired after schema plugin execution returns.
+
+    Triggered once whenever a schema plugin has executed.
+    """
+
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    params: Dict[str, Any]
+    success: bool
+    should_continue: bool
+    schema_plugin_id: str
+    error: str = ""
+    event_type: str = "after_schema"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class BeforeGuardEvent:
+    """
+    Event fired before guard plugin execution starts.
+
+    Triggered when a guard plugin exists and is about to run.
+    """
+
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    params: Dict[str, Any]
+    event_type: str = "before_guard"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
 class BeforeExecEvent:
     """
     Event fired before tool execution starts.
@@ -351,6 +406,68 @@ class FailEvent:
 
 
 @dataclass
+class AfterHealingEvent:
+    """
+    Event fired after healing plugin execution returns.
+
+    Triggered whenever a healing plugin has executed after a tool failure.
+    """
+
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    attempt: int
+    max_attempts: int
+    recovered: bool
+    fixed_params_applied: bool
+    healing_plugin_id: str
+    error: str = ""
+    event_type: str = "after_healing"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class RetryStartedEvent:
+    """
+    Event fired right before the next retry attempt starts.
+
+    Triggered when healing marks the execution as recoverable and a retry will begin.
+    """
+
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    attempt: int
+    next_attempt: int
+    max_attempts: int
+    reason: str = ""
+    event_type: str = "retry_started"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class AfterReflectEvent:
+    """
+    Event fired after reflect plugin execution returns.
+
+    Triggered once whenever a reflect plugin has executed.
+    """
+
+    execution_id: str
+    tool_id: str
+    tool_name: str
+    timestamp: float
+    reflect_plugin_id: str
+    success: bool
+    should_continue: bool
+    error: str = ""
+    event_type: str = "after_reflect"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
 class GuardBlockEvent:
     """
     Event fired when Guard plugin blocks execution.
@@ -387,6 +504,20 @@ class WaitApprovalEvent:
     approval_context: Optional[Dict[str, Any]] = None
     event_type: str = "wait_approval"
     metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class ApprovalResolvedEvent:
+    """Event fired when an approval reaches a terminal state."""
+
+    approval_id: str
+    execution_id: str
+    tool_id: str
+    resolution: str  # "approved" | "rejected" | "timeout"
+    timestamp: float
+    approver: Optional[str] = None
+    reason: Optional[str] = None
+    event_type: str = "approval_resolved"
 
 
 # =============================================================================

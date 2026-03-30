@@ -436,6 +436,10 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - [ ] Advanced healing strategies
 - [ ] Monitoring and alerting integrations
 
+### Future Plans
+
+- **JavaScript/TypeScript Version**: We plan to create a JavaScript/TypeScript version of SlotAgent to bring the same plugin-slot architecture and reliability guarantees to Node.js and browser environments. This will maintain API compatibility with the Python version while enabling integration with the broader JavaScript ecosystem.
+
 ---
 
 ## 📊 Project Status

@@ -349,6 +349,185 @@ class TestHookSubscriptions:
         assert len(events) == 1
         assert isinstance(events[0], WaitApprovalEvent)
 
+    def test_on_before_schema(self):
+        agent = SlotAgent()
+        events = []
+        schema = {
+            "type": "object",
+            "properties": {"location": {"type": "string"}},
+            "required": ["location"],
+        }
+
+        agent.on_before_schema(lambda e: events.append(e))
+        agent.register_plugin(SchemaDefault(schema=schema))
+        agent.register_tool(Tool(
+            tool_id="weather_query",
+            name="Weather Query",
+            description="Get weather for a location",
+            input_schema=schema,
+            execute_func=lambda p: {"location": p["location"]},
+        ))
+
+        ctx = agent.execute("weather_query", {"location": "Beijing"})
+
+        assert ctx.status == ExecutionStatus.COMPLETED
+        assert len(events) == 1
+        assert events[0].event_type == "before_schema"
+        assert events[0].__class__.__name__ == "BeforeSchemaEvent"
+
+    def test_on_after_schema(self):
+        agent = SlotAgent()
+        events = []
+        schema = {
+            "type": "object",
+            "properties": {"location": {"type": "string"}},
+            "required": ["location"],
+        }
+
+        agent.on_after_schema(lambda e: events.append(e))
+        agent.register_plugin(SchemaDefault(schema=schema))
+        agent.register_tool(Tool(
+            tool_id="weather_query",
+            name="Weather Query",
+            description="Get weather for a location",
+            input_schema=schema,
+            execute_func=lambda p: {"location": p["location"]},
+        ))
+
+        ctx = agent.execute("weather_query", {"location": "Beijing"})
+
+        assert ctx.status == ExecutionStatus.COMPLETED
+        assert len(events) == 1
+        assert events[0].event_type == "after_schema"
+        assert events[0].__class__.__name__ == "AfterSchemaEvent"
+        assert events[0].success is True
+        assert events[0].should_continue is True
+
+    def test_on_before_guard(self):
+        agent = SlotAgent()
+        events = []
+
+        agent.on_before_guard(lambda e: events.append(e))
+        agent.register_plugin(GuardDefault(whitelist=["safe_tool"]))
+        agent.register_tool(_make_tool("safe_tool"))
+
+        ctx = agent.execute("safe_tool", {})
+
+        assert ctx.status == ExecutionStatus.COMPLETED
+        assert len(events) == 1
+        assert events[0].event_type == "before_guard"
+        assert events[0].__class__.__name__ == "BeforeGuardEvent"
+
+    def test_on_after_healing(self):
+        from slotagent.interfaces import PluginInterface
+        from slotagent.types import PluginResult
+
+        calls = {"count": 0}
+
+        def flaky(params):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise RuntimeError("boom")
+            return {"attempt": calls["count"]}
+
+        class RecoveringHealingPlugin(PluginInterface):
+            layer = "healing"
+            plugin_id = "healing_recovering"
+            max_retries = 1
+
+            def validate(self):
+                return True
+
+            def execute(self, context):
+                return PluginResult(success=True, data={"recovered": True})
+
+        agent = SlotAgent()
+        events = []
+        agent.on_after_healing(lambda e: events.append(e))
+        agent.register_plugin(RecoveringHealingPlugin())
+        agent.register_tool(_make_tool("flaky_tool", func=flaky))
+
+        ctx = agent.execute("flaky_tool", {})
+
+        assert ctx.status == ExecutionStatus.COMPLETED
+        assert ctx.final_result == {"attempt": 2}
+        assert len(events) == 1
+        assert events[0].event_type == "after_healing"
+        assert events[0].__class__.__name__ == "AfterHealingEvent"
+        assert events[0].recovered is True
+        assert events[0].attempt == 1
+        assert events[0].max_attempts == 2
+
+    def test_on_retry_started(self):
+        from slotagent.interfaces import PluginInterface
+        from slotagent.types import PluginResult
+
+        calls = {"count": 0}
+
+        def flaky(params):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise RuntimeError("boom")
+            return {"attempt": calls["count"]}
+
+        class RecoveringHealingPlugin(PluginInterface):
+            layer = "healing"
+            plugin_id = "healing_recovering"
+            max_retries = 1
+
+            def validate(self):
+                return True
+
+            def execute(self, context):
+                return PluginResult(success=True, data={"recovered": True})
+
+        agent = SlotAgent()
+        events = []
+        agent.on_retry_started(lambda e: events.append(e))
+        agent.register_plugin(RecoveringHealingPlugin())
+        agent.register_tool(_make_tool("flaky_tool", func=flaky))
+
+        ctx = agent.execute("flaky_tool", {})
+
+        assert ctx.status == ExecutionStatus.COMPLETED
+        assert ctx.final_result == {"attempt": 2}
+        assert len(events) == 1
+        assert events[0].event_type == "retry_started"
+        assert events[0].__class__.__name__ == "RetryStartedEvent"
+        assert events[0].attempt == 1
+        assert events[0].next_attempt == 2
+        assert events[0].max_attempts == 2
+
+    def test_on_after_reflect(self):
+        from slotagent.interfaces import PluginInterface
+        from slotagent.types import PluginResult
+
+        class TrackingReflectPlugin(PluginInterface):
+            layer = "reflect"
+            plugin_id = "reflect_tracking"
+
+            def validate(self):
+                return True
+
+            def execute(self, context):
+                return PluginResult(success=True, should_continue=True, data={"reflected": True})
+
+        agent = SlotAgent()
+        events = []
+        agent.on_after_reflect(lambda e: events.append(e))
+        agent.register_plugin(TrackingReflectPlugin())
+        agent.register_tool(_make_tool("reflect_tool"))
+
+        ctx = agent.execute("reflect_tool", {})
+
+        assert ctx.status == ExecutionStatus.COMPLETED
+        assert len(events) == 1
+        assert events[0].event_type == "after_reflect"
+        assert events[0].__class__.__name__ == "AfterReflectEvent"
+        assert events[0].reflect_plugin_id == "reflect_tracking"
+        assert events[0].success is True
+        assert events[0].should_continue is True
+
     def test_multiple_subscribers_for_same_event(self):
         agent = SlotAgent()
         received_1, received_2 = [], []
@@ -411,3 +590,16 @@ class TestApprovalManagement:
         pending = agent.list_pending_approvals()
         pending_ids = {r.approval_id for r in pending}
         assert ctx.approval_id not in pending_ids
+
+    def test_on_approval_resolved_registers_subscriber(self):
+        """on_approval_resolved() registers handler for approval_resolved event"""
+        agent = self._setup_approval_agent()
+        events = []
+        agent.on_approval_resolved(lambda e: events.append(e))
+
+        ctx = agent.execute("payment_tool", {})
+        agent.approve(ctx.approval_id, approver="admin")
+
+        assert len(events) == 1
+        assert events[0].event_type == "approval_resolved"
+        assert events[0].resolution == "approved"

@@ -33,17 +33,37 @@ class HookManager:
     """
 
     # Valid event types
-    VALID_EVENT_TYPES = {"before_exec", "after_exec", "fail", "guard_block", "wait_approval"}
+    VALID_EVENT_TYPES = {
+        "before_schema",
+        "after_schema",
+        "before_guard",
+        "before_exec",
+        "after_exec",
+        "fail",
+        "after_healing",
+        "retry_started",
+        "after_reflect",
+        "guard_block",
+        "wait_approval",
+        "approval_resolved",
+    }
 
     def __init__(self):
         """Initialize HookManager."""
         # Subscribers dictionary: {event_type: [handler1, handler2, ...]}
         self._subscribers: Dict[str, List[HookHandler]] = {
+            "before_schema": [],
+            "after_schema": [],
+            "before_guard": [],
             "before_exec": [],
             "after_exec": [],
             "fail": [],
+            "after_healing": [],
+            "retry_started": [],
+            "after_reflect": [],
             "guard_block": [],
             "wait_approval": [],
+            "approval_resolved": [],
         }
         self._lock = threading.Lock()
         self._logger = logging.getLogger("slotagent.hooks")
