@@ -371,48 +371,6 @@ slotagent/
 
 ---
 
-## 📋 路线图
-
-### v0.1.0-alpha（已发布）✅
-
-- [x] 核心调度器与插件链执行
-- [x] 5层插件系统（Schema、Guard、Healing、Reflect、Observe）
-- [x] 工具注册表，支持工具级插件配置
-- [x] Hook 事件系统
-- [x] 人工审批工作流
-- [x] 全面测试套件
-- [x] 完整文档和示例
-
-### v0.2.0-alpha（已发布）✅
-
-- [x] SlotAgent 门面（独立模式 + 嵌入模式）
-- [x] LLM 抽象层（QwenLLM、MockLLM）
-- [x] LLM 驱动插件（HealingLLM、ReflectLLM）
-- [x] 自然语言工具交互（SlotAgent.run）
-- [x] 真实 LLM 综合示例
-
-### v0.3.0-alpha（当前）✅
-
-- [x] HealingLLM 枚举 key 自主修复演示
-- [x] 改进示例，展示 HealingLLM 自愈能力
-
-### v0.4.0（计划中）
-
-- [ ] 异步执行支持（`async/await`）
-- [ ] 性能基准测试和优化
-- [ ] LangGraph 集成示例
-- [ ] 分布式审批管理器（基于 Redis）
-- [ ] 更多内置插件
-- [ ] 数据库持久化层
-- [ ] 高级恢复策略
-- [ ] 监控和告警集成
-
-### 未来计划
-
-- **JavaScript/TypeScript 版本**：我们计划创建 JavaScript/TypeScript 版本的 SlotAgent，将同样的插件插槽架构和可靠性保证带到 Node.js 和浏览器环境。这将保持与 Python 版本的 API 兼容性，同时支持与更广泛的 JavaScript 生态系统集成。
-
----
-
 ## 📊 项目状态
 
 | 阶段 | 状态 | 完成时间 |
