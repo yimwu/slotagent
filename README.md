@@ -400,48 +400,6 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 ---
 
-## 📋 Roadmap
-
-### v0.1.0-alpha (Previous) ✅
-
-- [x] Core scheduler with plugin chain execution
-- [x] 5-layer plugin system (Schema, Guard, Healing, Reflect, Observe)
-- [x] Tool registry with per-tool plugin configuration
-- [x] Hook-based event system
-- [x] Human-in-the-loop approval workflow
-- [x] Comprehensive test suite
-- [x] Complete documentation and examples
-
-### v0.2.0-alpha (Previous) ✅
-
-- [x] SlotAgent facade (independent + embedded mode)
-- [x] LLM abstraction layer with QwenLLM and MockLLM
-- [x] LLM-driven plugins (HealingLLM, ReflectLLM)
-- [x] Natural language tool interaction (SlotAgent.run)
-- [x] Comprehensive examples with real LLM
-
-### v0.3.0-alpha (Current) ✅
-
-- [x] LLM self-healing with enumerated error keys
-- [x] Improved examples demonstrating HealingLLM self-repair
-
-### v0.4.0 (Planned)
-
-- [ ] Async execution support (`async/await`)
-- [ ] Performance benchmarking and optimization
-- [ ] LangGraph integration example
-- [ ] Distributed approval manager (Redis-based)
-- [ ] Additional built-in plugins
-- [ ] Database persistence layer
-- [ ] Advanced healing strategies
-- [ ] Monitoring and alerting integrations
-
-### Future Plans
-
-- **JavaScript/TypeScript Version**: We plan to create a JavaScript/TypeScript version of SlotAgent to bring the same plugin-slot architecture and reliability guarantees to Node.js and browser environments. This will maintain API compatibility with the Python version while enabling integration with the broader JavaScript ecosystem.
-
----
-
 ## 📊 Project Status
 
 | Phase | Status | Completion |
